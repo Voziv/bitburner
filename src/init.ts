@@ -25,7 +25,9 @@ const hosts = [
 
 export async function main(ns: NS): Promise<void> {
 
-    ns.singularity.universityCourse(ns.enums.LocationName.Sector12RothmanUniversity, ns.enums.UniversityClassType.computerScience, true)
+    // Can't use singularity yet. Not sure when it gets unlocked or whether it's permanent or not.
+    // ns.singularity.universityCourse(ns.enums.LocationName.Sector12RothmanUniversity, ns.enums.UniversityClassType.computerScience, true)
+
 
     for (const host of hosts[0]) {
         const threads = Math.floor(ns.getServerMaxRam(host) / ns.getScriptRam(script));
