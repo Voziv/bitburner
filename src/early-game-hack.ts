@@ -5,15 +5,6 @@ export async function main(ns: NS): Promise<void> {
     const moneyThresh = ns.getServerMaxMoney(target);
     const securityThresh = ns.getServerMinSecurityLevel(target);
 
-    // If we have the BruteSSH.exe program, use it to open the SSH Port
-    // on the target server
-    if (ns.fileExists("BruteSSH.exe", "home")) {
-        ns.brutessh(target);
-    }
-
-    // Get root access to target server
-    ns.nuke(target);
-
     // Infinite loop that continuously hacks/grows/weakens the target server
     while (true) {
         if (ns.getServerSecurityLevel(target) > securityThresh) {
