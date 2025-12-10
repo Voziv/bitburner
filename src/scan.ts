@@ -1,10 +1,11 @@
 import {NS} from '@ns';
 import {Host, Hosts, scan} from '/lib/servers';
-
+import {tFormatAsTable} from "/lib/table";
 
 
 export async function main(ns: NS): Promise<void> {
-
+    ns.disableLog('ALL');
+    ns.clearLog();
     const hosts: Hosts = {};
 
     await scan(ns, 'home', hosts, 1);
@@ -26,36 +27,28 @@ export async function main(ns: NS): Promise<void> {
 }
 
 function printHosts(ns: NS, hosts: Host[]) {
-    const moneyFormatter = Intl.NumberFormat('en-US', {style: 'currency', currency: 'USD', maximumFractionDigits: 0});
-    const padding = [
-        20, 5, 10, 18, 18, 10, 10,
+    const headers = [
+        'Name',
+        'Depth',
+        'Hack Level',
+        'Cur Money',
+        'Max Money',
+        'Max Ram',
+        '# Ports',
     ];
-    const totalPadding = padding.reduce((acc, val) => acc + val) + ((padding.length - 1) * 3) + 4;
-    ns.tprintf('| %s | %s | %s | %s | %s | %s | %s |',
-        'Name'.padEnd(padding[0]),
-        'Depth'.padEnd(padding[1]),
-        'Hack Level'.padEnd(padding[2]),
-        'Cur Money'.padEnd(padding[3]),
-        'Max Money'.padEnd(padding[4]),
-        'Max Ram'.padEnd(padding[5]),
-        '# Ports'.padEnd(padding[6]),
-    );
 
-    ns.tprintf(''.padEnd(totalPadding, '='));
-    let lastPorts = 0;
+    const data: string[][] = [];
+
     for (const host of Object.values(hosts)) {
-        if (lastPorts < host.portsRequired){
-            ns.tprintf(''.padEnd(totalPadding, '='));
-            lastPorts = host.portsRequired;
-        }
-        ns.tprintf('| %s | %s | %s | %s | %s | %s | %s |',
-            host.name.padEnd(padding[0]),
-            ns.sprintf('%d', host.depth).padEnd(padding[1]),
-            ns.sprintf('%d', host.hackLevel).padEnd(padding[2]),
-            moneyFormatter.format(host.currentMoney).padEnd(padding[3]),
-            moneyFormatter.format(host.maxMoney).padEnd(padding[4]),
-            ns.sprintf('%d GB', host.maxRam).padEnd(padding[5]),
-            ns.sprintf('%d', host.portsRequired).padEnd(padding[6]),
-        );
+        data.push([
+            host.name,
+            ns.formatNumber(host.depth, 0),
+            ns.formatNumber(host.hackLevel, 0),
+            '$' + ns.formatNumber(host.currentMoney, 0),
+            '$' + ns.formatNumber(host.maxMoney, 0),
+            ns.formatRam(host.maxRam, 0),
+            ns.formatNumber(host.portsRequired, 0),
+        ]);
     }
+    tFormatAsTable(ns, headers, data);
 }

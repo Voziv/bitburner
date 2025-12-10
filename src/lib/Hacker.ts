@@ -2,6 +2,10 @@ import {NS} from '@ns';
 import {ServerList} from '/lib/ServerList';
 import {Tools} from '/lib/tools';
 import {PurchasedServers} from '/lib/PurchasedServers';
+import {printStats} from "/lib/format";
+
+const HACK_SCRIPT_RAM = 1.6 + 0.2;
+const MAX_THREADS = 100;
 
 export class Hacker {
     private ns: NS;
@@ -12,17 +16,46 @@ export class Hacker {
     private target = 'n00dles';
     private totalThreads = 0;
     private reHack = true;
+    private stats = new Map<string, string>();
+    private targetStats = new Map<string, string>();
+    private hackStats = new Map<string, string>();
 
     constructor(ns: NS) {
         this.ns = ns;
         this.serverList = new ServerList(ns);
         this.tools = new Tools(ns);
         this.purchasedServers = new PurchasedServers(ns);
+    }
 
+    private async updateStats() {
+        this.ns.clearLog();
+        this.stats.set('Timestamp', `${Date.now()}`)
+        this.stats.set('PServ #', `${this.purchasedServers.purchasedCount}`)
+        this.stats.set('PServ #', `${this.ns.formatRam(this.purchasedServers.currentRam, 0)} -> ${this.ns.formatRam(this.purchasedServers.upgradeRam, 0)}`)
+        this.stats.set('Upgrade Progress', `${this.purchasedServers.upgradedCount} / ${this.purchasedServers.purchasedCount}`)
+        printStats(this.ns, this.stats);
+        this.targetStats.set('Target', this.target)
+        this.targetStats.set('Money', `$${this.ns.formatNumber(this.ns.getServerMoneyAvailable(this.target), 0)} / $${this.ns.formatNumber(this.ns.getServerMaxMoney(this.target), 0)}`)
+        this.targetStats.set('Security', `${this.ns.formatNumber(this.ns.getServerSecurityLevel(this.target))} (Min: ${this.ns.formatNumber(this.ns.getServerMinSecurityLevel(this.target), 0)})`)
+        this.targetStats.set('Hack Analyze', this.ns.formatNumber(this.ns.hackAnalyze(this.target)))
+        this.targetStats.set('Hack Analyze %', this.ns.formatNumber(this.ns.hackAnalyzeChance(this.target) * 100) + '%')
+        this.targetStats.set('Hack Analyze Threads', this.ns.formatNumber(this.ns.hackAnalyzeThreads(this.target, this.ns.getServerMaxMoney(this.target) - 1)))
+        this.targetStats.set('Server Growth', this.ns.formatNumber(this.ns.getServerGrowth(this.target)))
+        this.targetStats.set('Hack Time', this.ns.tFormat(this.ns.getHackTime(this.target)))
+        this.targetStats.set('Weak Time', this.ns.tFormat(this.ns.getWeakenTime(this.target)))
+        this.targetStats.set('Weak Amt', this.ns.formatNumber(this.ns.weakenAnalyze(1)))
+        this.targetStats.set('---', '---')
+
+        this.targetStats.set('Grow Time', this.ns.tFormat(this.ns.getGrowTime(this.target)))
+        this.targetStats.set('Grow Security Amt', this.ns.formatNumber(this.ns.growthAnalyzeSecurity(1, this.target)))
+
+        printStats(this.ns, this.targetStats)
+        printStats(this.ns, this.hackStats)
     }
 
     public async run() {
         while (true) {
+
             await this.purchasedServers.onTick();
             await this.serverList.onTick();
             await this.tools.onTick();
@@ -41,8 +74,8 @@ export class Hacker {
                 this.reHack = true;
             }
 
-            //const newTarget = this.pickBestTarget();
-            const newTarget = this.target = 'iron-gym';
+            const newTarget = this.pickBestTarget();
+            // const newTarget = this.target = 'phantasy';
             if (newTarget !== this.target) {
                 this.ns.print(`New target selected: ${newTarget}`);
                 this.ns.print(`Hack Level: ${this.ns.getServerRequiredHackingLevel(newTarget)}`);
@@ -52,10 +85,11 @@ export class Hacker {
 
 
             if (this.reHack) {
-                this.hackTarget(this.target);
+                await this.hackTarget(this.target);
                 this.reHack = false;
             }
 
+            await this.updateStats();
             await this.ns.sleep(1000);
         }
     }
@@ -70,17 +104,16 @@ export class Hacker {
     }
 
     private maxHostThreads(host: string): number {
-        const scriptRam = this.ns.getScriptRam('grow.js', 'home');
         let serverRam = this.ns.getServerMaxRam(host);
         if (host === 'home') {
             serverRam -= 64;
         }
 
-        if (serverRam < scriptRam) {
+        if (serverRam < HACK_SCRIPT_RAM) {
             return 0;
         }
 
-        return Math.floor(serverRam / scriptRam);
+        return Math.floor(serverRam / HACK_SCRIPT_RAM);
     }
 
     private pickBestTarget() {
@@ -103,19 +136,14 @@ export class Hacker {
         return target;
     }
 
-    private hackTarget(target: string) {
-        const growParts = 20;
-        const weakenParts = 4;
+    private async hackTarget(target: string) {
+        const growParts = 80;
+        const weakenParts = 40;
         const hackParts = 1;
         const totalParts = hackParts + growParts + weakenParts;
         const growPercent = growParts / totalParts;
         const weakenPercent = weakenParts / totalParts;
         const hackPercent = hackParts / totalParts;
-
-        this.ns.print(`Grow %: ${growPercent * 100}%`);
-        this.ns.print(`Weaken %: ${weakenPercent * 100}%`);
-        this.ns.print(`Hack %: ${hackPercent * 100}%`);
-
 
         const totalThreads = this.countThreads();
         const targetGrowThreads = Math.floor(totalThreads * growPercent);
@@ -125,59 +153,91 @@ export class Hacker {
         let totalWeakenThreads = 0;
         let totalHackThreads = 0;
 
-        this.ns.print(`Grow %                 : ${this.ns.formatNumber(growPercent * 100, 1)}%`);
-        this.ns.print(`Weaken %               : ${this.ns.formatNumber(weakenPercent * 100, 1)}%`);
-        this.ns.print(`Hack %                 : ${this.ns.formatNumber(hackPercent * 100, 1)}%`);
-        this.ns.print('========================================');
-        this.ns.print(`Total threads available: ${this.ns.formatNumber(totalThreads, 0)}`);
-        this.ns.print('========================================');
-        this.ns.print(`Desired Grow Threads   : ${this.ns.formatNumber(targetGrowThreads, 0)}`);
-        this.ns.print(`Desired Weaken Threads : ${this.ns.formatNumber(targetWeakenThreads, 0)}`);
-        this.ns.print(`Desired Hack Threads   : ${this.ns.formatNumber(targetHackThreads, 0)}`);
+        this.hackStats.set('Grow %', `${this.ns.formatNumber(growPercent * 100, 1)}%`)
+        this.hackStats.set('Weaken %', `${this.ns.formatNumber(weakenPercent * 100, 1)}%`)
+        this.hackStats.set('Hack %', `${this.ns.formatNumber(hackPercent * 100, 1)}%`)
+        this.hackStats.set('= =', '')
+        this.hackStats.set('Total threads available', `${this.ns.formatNumber(totalThreads, 0)}`)
+        this.hackStats.set(' ==', '')
+        this.hackStats.set('Desired Grow Threads', `${this.ns.formatNumber(targetGrowThreads, 0)}`)
+        this.hackStats.set('Desired Weaken Threads', `${this.ns.formatNumber(targetWeakenThreads, 0)}`)
+        this.hackStats.set('Desired Hack Threads', `${this.ns.formatNumber(targetHackThreads, 0)}`)
+
 
         for (const [host, server] of this.serverList.servers) {
+            let threadsAvailable = this.maxHostThreads(host);
+            if (threadsAvailable < 1) continue;
+
+
             if (host !== 'home') {
-                this.ns.scp('grow.js', host, 'home');
-                this.ns.scp('weaken.js', host, 'home');
+                // TODO: Check hashes and only copy when different?
                 this.ns.scp('hack.js', host, 'home');
             }
 
-            this.ns.killall(host);
+            this.ns.scriptKill('hack.js', host);
 
-            let threadsAvailable = this.maxHostThreads(host);
-
-            // Do we need grow threads?
-            if (threadsAvailable > 0 && totalGrowThreads < targetGrowThreads) {
-                const threads = Math.min(threadsAvailable, targetGrowThreads - totalGrowThreads);
-                this.ns.exec('grow.js', host, threads, target);
-                totalGrowThreads += threads;
-                threadsAvailable -= threads;
+            /**
+             * WEAKEN
+             */
+            while (threadsAvailable > 0) {
+                const delay = Math.floor(Math.random() * 400) + 100
+                if (totalWeakenThreads < targetWeakenThreads) {
+                    const threads = Math.min(Math.min(threadsAvailable, targetWeakenThreads - totalWeakenThreads), MAX_THREADS);
+                    this.ns.exec('hack.js', host, {
+                        threads,
+                        ramOverride: HACK_SCRIPT_RAM
+                    }, 'weaken-loop', target, delay);
+                    totalWeakenThreads += threads;
+                    threadsAvailable -= threads;
+                } else {
+                    break;
+                }
             }
 
-            // Do we need weaken threads?
-            if (threadsAvailable > 0 && totalWeakenThreads < targetWeakenThreads) {
-                const threads = Math.min(threadsAvailable, targetWeakenThreads - totalWeakenThreads);
-                this.ns.exec('weaken.js', host, threads, target);
-                totalWeakenThreads += threads;
-                threadsAvailable -= threads;
+            /**
+             * GROW
+             */
+            while (threadsAvailable > 0) {
+                const delay = Math.floor(Math.random() * 400) + 100
+                if (totalGrowThreads < targetGrowThreads) {
+                    const threads = Math.min(Math.min(threadsAvailable, targetGrowThreads - totalGrowThreads), MAX_THREADS);
+                    this.ns.exec('hack.js', host, {
+                        threads,
+                        ramOverride: HACK_SCRIPT_RAM
+                    }, 'grow-loop', target, delay);
+                    totalGrowThreads += threads;
+                    threadsAvailable -= threads;
+                } else {
+                    break;
+                }
             }
 
-            // Do we need hack threads?
-            if (threadsAvailable > 0 && totalHackThreads < targetHackThreads) {
-                const threads = Math.min(threadsAvailable, targetHackThreads - totalHackThreads);
-                this.ns.exec('hack.js', host, threads, target);
-                totalHackThreads += threads;
-                threadsAvailable -= threads;
+            /**
+             * HACK
+             */
+            while (threadsAvailable > 0) {
+                const delay = Math.floor(Math.random() * 400) + 100
+                if (totalHackThreads < targetHackThreads) {
+                    const threads = Math.min(Math.min(threadsAvailable, targetHackThreads - totalHackThreads), MAX_THREADS);
+                    this.ns.exec('hack.js', host, {
+                        threads,
+                        ramOverride: HACK_SCRIPT_RAM
+                    }, 'hack-loop', target, delay);
+                    totalHackThreads += threads;
+                    threadsAvailable -= threads;
+                } else {
+                    break;
+                }
             }
         }
 
-        this.ns.print('========================================');
-        this.ns.print(`Total Grow Threads     : ${this.ns.formatNumber(totalGrowThreads, 0)}`);
-        this.ns.print(`Total Weaken Threads   : ${this.ns.formatNumber(totalWeakenThreads, 0)}`);
-        this.ns.print(`Total Hack Threads     : ${this.ns.formatNumber(totalHackThreads, 0)}`);
-        this.ns.print('========================================');
-        this.ns.print(`Grow   Time for ${target}: ${this.ns.tFormat(this.ns.getGrowTime(target))}`);
-        this.ns.print(`Weaken Time for ${target}: ${this.ns.tFormat(this.ns.getWeakenTime(target))}`);
-        this.ns.print(`Hack   Time for ${target}: ${this.ns.tFormat(this.ns.getHackTime(target))}`);
+        this.hackStats.set(' = =', '')
+        this.hackStats.set('Total Grow Threads', `${this.ns.formatNumber(totalGrowThreads, 0)}`)
+        this.hackStats.set('Total Weaken Threads', `${this.ns.formatNumber(totalWeakenThreads, 0)}`)
+        this.hackStats.set('Total Hack Threads', `${this.ns.formatNumber(totalHackThreads, 0)}`)
+        this.hackStats.set('= = ', '')
+        this.hackStats.set(`Grow   Time for ${target}`, `${this.ns.tFormat(this.ns.getGrowTime(target))}`)
+        this.hackStats.set(`Weaken Time for ${target}`, `${this.ns.tFormat(this.ns.getWeakenTime(target))}`)
+        this.hackStats.set(`Hack   Time for ${target}`, `${this.ns.tFormat(this.ns.getHackTime(target))}`)
     }
 }

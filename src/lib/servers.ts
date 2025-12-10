@@ -8,103 +8,13 @@ export type Host = {
     maxRam: number;
     portsRequired: number;
     depth: number;
+    parent?: string;
+    children: string[];
 }
 
 export type Hosts = {
     [name: string]: Host;
 }
-
-const MAX_DEPTH = 25;
-
-export const HOSTS_BY_REQUIRED_PORTS = [
-    // Servers that can be nuked right away
-    [
-        'n00dles',
-        'harakiri-sushi',
-        'hong-fang-tea',
-        'joesguns',
-        'foodnstuff',
-        'nectar-net',
-        'sigma-cosmetics',
-    ],
-    // Servers that need at least 1 port before being nuked
-    [
-        'CSEC', // CyberSec
-        'neo-net',
-        'zer0',
-        'max-hardware',
-        'iron-gym',
-    ],
-    // Servers that need at least 2 port before being nuked
-    [
-        'phantasy',
-        'silver-helix',
-        'avmnite-02h', // NiteSec
-        'omega-net',
-        'crush-fitness',
-        'johnson-ortho',
-        'the-hub',
-    ],
-    // Servers that need at least 3 port before being nuked
-    [
-        'I.I.I.I',
-        'computek',
-        'rothman-uni',
-        'netlink',
-        'catalyst',
-        'summit-uni',
-        'millenium-fitness',
-        'rho-construction',
-    ],
-    // Servers that need at least 4 port before being nuked
-    [
-        'aevum-police',
-        '.',
-        'run4theh111z',
-        'alpha-ent',
-        'syscore',
-        'lexo-corp',
-        'nova-med',
-        'unitalife',
-        'applied-energetics',
-        'global-pharm',
-        'snap-fitness',
-        'zb-def',
-        'univ-energy',
-    ],
-    // Servers that need at least 5 port before being nuked
-    [
-        'zb-institute',
-        'solaris',
-        'helios',
-        'vitalife',
-        'microdyne',
-        'zeus-med',
-        'titan-labs',
-        'galactic-cyber',
-        'taiyang-digital',
-        'deltaone',
-        'omnia',
-        'aerocorp',
-        'icarus',
-        'infocomm',
-        'The-Cave',
-        'omnitek',
-        'stormtech',
-        'powerhouse-fitness',
-        'defcomm',
-        'clarkinc',
-        'b-and-a',
-        'ecorp',
-        'blade',
-        'kuai-gong',
-        'nwo',
-        '4sigma',
-        'fulcrumtech',
-        'megacorp',
-        'fulcrumassets',
-    ],
-];
 
 export function upgradeServer(ns: NS, target: string) {
     if (ns.fileExists('BruteSSH.exe', 'home')) {
@@ -137,7 +47,7 @@ export async function getServers(ns: NS) {
 export async function getHosts(ns: NS, hostToScan: string, depth: number) {
     await ns.sleep(1);
 
-    if (depth > MAX_DEPTH) {
+    if (depth > 25) {
         return;
     }
 
@@ -156,15 +66,17 @@ export async function scan(ns: NS, host: string, hosts: Hosts, depth: number) {
     // Ensure we provide the ability for other scripts to run
     await ns.sleep(1);
 
-    if (depth > MAX_DEPTH) {
+    if (depth > 25) {
         return;
     }
 
     const results = ns.scan(host);
+
     for (const result of results) {
-        if (result.startsWith('voz-') || result == 'home' || Object.hasOwn(hosts, result)) {
+        if (result == 'home' || Object.hasOwn(hosts, result)) {
             continue;
         }
+
         hosts[result] = {
             name: result,
             currentMoney: ns.getServerMoneyAvailable(result),
@@ -172,6 +84,8 @@ export async function scan(ns: NS, host: string, hosts: Hosts, depth: number) {
             maxRam: ns.getServerMaxRam(result),
             portsRequired: ns.getServerNumPortsRequired(result),
             hackLevel: ns.getServerRequiredHackingLevel(result),
+            parent: host,
+            children: results.filter((value) => value === host),
             depth,
         };
         await scan(ns, result, hosts, depth + 1);

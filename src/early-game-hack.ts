@@ -5,6 +5,8 @@ export async function main(ns: NS): Promise<void> {
     const moneyThresh = ns.getServerMaxMoney(target);
     const securityThresh = ns.getServerMinSecurityLevel(target);
 
+    await ns.sleep((Math.random() * 1000) + 1);
+
     // Infinite loop that continuously hacks/grows/weakens the target server
     while (true) {
         if (ns.getServerSecurityLevel(target) > securityThresh) {

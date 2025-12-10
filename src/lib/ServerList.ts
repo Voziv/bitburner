@@ -22,7 +22,7 @@ export class ServerList {
     }
 
     private async getHosts(hostToScan: string, depth: number) {
-        await this.ns.sleep(0);
+        await this.ns.sleep(1);
         this.hosts.add(hostToScan);
 
         if (depth > MAX_SCAN_DEPTH) {
