@@ -1,5 +1,6 @@
-import {NS} from '@ns';
-import {countTools} from '/lib/tools';
+import { NS } from '@ns';
+import { countTools } from '/lib/tools';
+
 
 export async function main(ns: NS): Promise<void> {
     const maxServers = ns.getPurchasedServerLimit();

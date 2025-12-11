@@ -1,16 +1,17 @@
-import {NS} from '@ns';
-import {printStats} from "/lib/format";
-import {ServerList} from "/lib/ServerList";
+import { NS } from '@ns';
+import { printStats } from '/lib/format';
+import { ServerList } from '/lib/ServerList';
+
 
 const sleepMillis = 1000;
 
 export async function main(ns: NS): Promise<void> {
     ns.disableLog('ALL');
     ns.ui.openTail();
-    const [windowWidth] = ns.ui.windowSize()
+    const [ windowWidth ] = ns.ui.windowSize();
     const width = 600;
     ns.ui.resizeTail(600, 150);
-    ns.ui.moveTail(windowWidth - (width + 250 + 605), 5 + 155)
+    ns.ui.moveTail(windowWidth - (width + 250 + 605), 5 + 155);
 
 
     const shareManager = new ShareManager(ns);
@@ -42,14 +43,14 @@ class ShareManager {
     constructor(ns: NS) {
         this.ns = ns;
         this.serverList = new ServerList(ns);
-        this.shareScriptRam = this.ns.getScriptRam('share.js', 'home')
+        this.shareScriptRam = this.ns.getScriptRam('share.js', 'home');
     }
 
     public async tick() {
         this.lastTick = this.tickStart;
-        this.tickStart = Date.now()
+        this.tickStart = Date.now();
 
-        this.shareScriptRam = this.ns.getScriptRam('share.js', 'home')
+        this.shareScriptRam = this.ns.getScriptRam('share.js', 'home');
         await this.serverList.onTick();
 
         const newTotalThreads = this.countThreads();
@@ -83,15 +84,15 @@ class ShareManager {
         this.uiBox1.set('Max threads', `${this.ns.formatNumber(this.maxThreads, 0)}`);
 
         this.ns.clearLog();
-        this.ns.ui.setTailTitle(`Sharing ${this.ns.formatRam(this.sharedRam)} over ${this.ns.formatNumber(this.sharedThreads, 0)} threads`)
+        this.ns.ui.setTailTitle(`Sharing ${this.ns.formatRam(this.sharedRam)} over ${this.ns.formatNumber(this.sharedThreads, 0)} threads`);
 
         printStats(this.ns, this.uiBox1);
-        this.ns.ui.renderTail()
+        this.ns.ui.renderTail();
     }
 
     private async share() {
         this.sharedRam = 0;
-        for (const [host, server] of this.serverList.servers) {
+        for (const [ host, server ] of this.serverList.servers) {
             let threadsAvailable = this.maxHostThreads(host);
             if (threadsAvailable < 1) continue;
 
@@ -110,7 +111,7 @@ class ShareManager {
 
     private countThreads(): number {
         let threads = 0;
-        for (const [host, server] of this.serverList.servers) {
+        for (const [ host, server ] of this.serverList.servers) {
             let serverRam = this.ns.getServerMaxRam(host);
             if (host === 'home') {
                 serverRam -= 64;
@@ -136,7 +137,7 @@ class ShareManager {
 
     private countRam(): number {
         let ram = 0;
-        for (const [host, server] of this.serverList.servers) {
+        for (const [ host, server ] of this.serverList.servers) {
             let serverRam = this.ns.getServerMaxRam(host);
             if (host === 'home') {
                 serverRam -= 64;

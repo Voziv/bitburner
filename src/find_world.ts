@@ -3,13 +3,13 @@ import { Host, Hosts, scan } from '/lib/servers';
 
 
 export async function main(ns: NS): Promise<void> {
-    const target = 'run4theh111z';
+    const target = 'w0r1d_d43m0n';
     ns.tprint(`Searching for ${target}`);
     ns.disableLog('ALL');
     ns.clearLog();
     const hosts: Hosts = {};
 
-    await scan(ns, 'home', hosts, 11);
+    await scan(ns, 'home', hosts, 1);
 
     let server = hosts[target];
     if (!server) {

@@ -1,10 +1,9 @@
-import {NS} from '@ns';
+import { NS } from '@ns';
 
 
 export class Batch {
     private ns: NS;
     private target: string;
-
 
 
     constructor(ns: NS, target: string) {

@@ -1,13 +1,14 @@
 import { NS } from '@ns';
 import React from '@react';
 
+
 interface IMyContentProps {
-    name: string
+    name: string;
 }
 
-const MyContent = ({name}: IMyContentProps) => <span>Hello {name}</span>;
+const MyContent = ({ name }: IMyContentProps) => <span>Hello {name}</span>;
 
-export async function main(ns: NS){
+export async function main(ns: NS) {
     // Shows up in the log tail of this script
     ns.printRaw(<MyContent name="Your name"></MyContent>);
     while (true) {

@@ -1,4 +1,5 @@
-import {NS} from '@ns';
+import { NS } from '@ns';
+
 
 export function formatAsTable(ns: NS, headers: string[], data: string[][]) {
     const rows = convertToRows(ns, headers, data);
@@ -17,7 +18,7 @@ export function tFormatAsTable(ns: NS, headers: string[], data: string[][]) {
 }
 
 function convertToRows(ns: NS, headers: string[], data: string[][]): string[] {
-    const rows: string[] = []
+    const rows: string[] = [];
     const colWidths = calculateColWidths(ns, headers, data);
 
     const header = formatRow(headers, colWidths);
@@ -35,17 +36,17 @@ function formatRow(rowData: string[], colWidths: number[]): string {
     let row = '';
 
     for (let i = 0; i < rowData.length; i++) {
-        row += '| ' + rowData[i].padEnd(colWidths[i]) + ' '
+        row += '| ' + rowData[i].padEnd(colWidths[i]) + ' ';
     }
 
     if (rowData.length < colWidths.length) {
         const extraColumns = colWidths.length - rowData.length;
         for (let i = 0; i < extraColumns; i++) {
-            row += '| ' + `-`.padEnd(colWidths[i]) + ' '
+            row += '| ' + `-`.padEnd(colWidths[i]) + ' ';
         }
     }
 
-    row += '|'
+    row += '|';
 
     return row;
 }

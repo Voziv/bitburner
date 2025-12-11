@@ -1,4 +1,5 @@
-import {BasicHGWOptions, NS} from '@ns';
+import { BasicHGWOptions, NS } from '@ns';
+
 
 const ACTIONS = [
     'grow',
@@ -17,12 +18,12 @@ export async function main(ns: NS): Promise<void> {
 
     if (!action || !ACTIONS.includes(action)) {
         ns.print(`Action must be one of [${ACTIONS.join(',')}]`);
-        ns.exit()
+        ns.exit();
     }
 
     if (!target) {
-        ns.print(`You must specify a target as the first parameter`)
-        ns.exit()
+        ns.print(`You must specify a target as the first parameter`);
+        ns.exit();
     }
 
     if (initialMsec > 0) await ns.sleep(initialMsec);

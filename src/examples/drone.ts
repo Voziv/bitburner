@@ -1,5 +1,6 @@
-import {NS} from '@ns';
-import {tFormatAsTable} from "/lib/table";
+import { NS } from '@ns';
+import { tFormatAsTable } from '/lib/table';
+
 
 export async function main(ns: NS): Promise<void> {
     const hosts = ns.getPurchasedServers();
@@ -19,8 +20,8 @@ export async function main(ns: NS): Promise<void> {
             ns.formatRam(ns.getServerMaxRam(host)),
             ns.formatRam(ns.getServerMaxRam(host) * 2),
             '$' + ns.formatNumber(ns.getPurchasedServerUpgradeCost(host, ns.getServerMaxRam(host) * 2)),
-        ])
+        ]);
     }
 
-    tFormatAsTable(ns, headers, rows)
+    tFormatAsTable(ns, headers, rows);
 }

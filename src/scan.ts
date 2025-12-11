@@ -1,6 +1,6 @@
-import {NS} from '@ns';
-import {Host, Hosts, scan} from '/lib/servers';
-import {tFormatAsTable} from "/lib/table";
+import { NS } from '@ns';
+import { Host, Hosts, scan } from '/lib/servers';
+import { tFormatAsTable } from '/lib/table';
 
 
 export async function main(ns: NS): Promise<void> {

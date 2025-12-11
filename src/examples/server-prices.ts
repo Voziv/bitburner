@@ -1,4 +1,5 @@
-import {NS} from '@ns';
+import { NS } from '@ns';
+
 
 export async function main(ns: NS): Promise<void> {
     ns.tprintf(`Purchased Servers can have a maximum of %s GB RAM}`, ns.formatRam(ns.getPurchasedServerMaxRam()));

@@ -1,4 +1,5 @@
-import {NS, Server} from '@ns';
+import { NS, Server } from '@ns';
+
 
 const TOOLS = [
     'BruteSSH.exe',

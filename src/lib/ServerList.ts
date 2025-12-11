@@ -1,4 +1,5 @@
-import {NS, Server} from '@ns';
+import { NS, Server } from '@ns';
+
 
 const MAX_SCAN_DEPTH = 25;
 
@@ -7,27 +8,31 @@ export class ServerList {
 
     private hosts = new Set<string>();
     public servers = new Map<string, Server>();
+    private lastHostScan = 0;
 
 
     constructor(ns: NS) {
         this.ns = ns;
+        this.lastHostScan = Date.now();
+        this.getHosts('home', 0);
     }
 
     public async onTick() {
-        await this.getHosts('home', 0);
+        const now = Date.now();
+        if (this.lastHostScan <= now - 60000) {
+            this.lastHostScan = now;
+            this.getHosts('home', 0);
+        }
 
         for (const host of this.hosts) {
             this.servers.set(host, this.ns.getServer(host));
         }
     }
 
-    private async getHosts(hostToScan: string, depth: number) {
-        await this.ns.sleep(1);
+    private getHosts(hostToScan: string, depth: number) {
         this.hosts.add(hostToScan);
 
-        if (depth > MAX_SCAN_DEPTH) {
-            return;
-        }
+        if (depth > MAX_SCAN_DEPTH) return;
 
         const hosts = this.ns.scan(hostToScan);
         for (const host of hosts) {
@@ -35,7 +40,7 @@ export class ServerList {
                 continue;
             }
 
-            await this.getHosts(host, depth + 1);
+            this.getHosts(host, depth + 1);
         }
 
     }
