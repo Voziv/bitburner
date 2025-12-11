@@ -10,7 +10,7 @@ export async function main(ns: NS): Promise<void> {
     const [windowWidth] = ns.ui.windowSize()
     const width = 600;
     ns.ui.resizeTail(600, 150);
-    ns.ui.moveTail(windowWidth - (width + 250 + 605 + 605), 5)
+    ns.ui.moveTail(windowWidth - (width + 250 + 605), 5 + 155)
 
 
     const shareManager = new ShareManager(ns);
