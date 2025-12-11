@@ -18,8 +18,13 @@ export async function main(ns: NS): Promise<void> {
     }
 
     for (let i = 0; i < 50; i++) {
+
         ns.tprint(server.name)
         if (server.parent) {
+            if (!hosts[server.parent]) {
+                ns.tprint(`Could not find ${server.parent}`);
+                break;
+            }
             server = hosts[server.parent];
         } else {
             break;

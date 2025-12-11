@@ -10,7 +10,7 @@ export async function main(ns: NS): Promise<void> {
     ns.ui.openTail();
     const [windowWidth] = ns.ui.windowSize()
     const width = 600;
-    ns.ui.resizeTail(600, 500);
+    ns.ui.resizeTail(600, 300);
     ns.ui.moveTail(windowWidth - (width + 250), 5)
 
     const hacker = new Hacker(ns);
@@ -109,6 +109,10 @@ export class Hacker {
         // this.targetStats.set('Grow Time', this.ns.tFormat(this.ns.getGrowTime(this.target)))
         // this.targetStats.set('Grow Security Amt', this.ns.formatNumber(this.ns.growthAnalyzeSecurity(1, this.target)))
 
+        this.targetStats.set(`Grow Time`, `${this.ns.tFormat(this.ns.getGrowTime(this.target))}`)
+        this.targetStats.set(`Weaken Time`, `${this.ns.tFormat(this.ns.getWeakenTime(this.target))}`)
+        this.targetStats.set(`Hack Time`, `${this.ns.tFormat(this.ns.getHackTime(this.target))}`)
+
         this.ns.clearLog();
         this.ns.ui.setTailTitle(`Hacking ${this.target} (${money})`)
 
@@ -177,17 +181,6 @@ export class Hacker {
         let totalWeakenThreads = 0;
         let totalHackThreads = 0;
 
-        this.hackStats.set('Grow %', `${this.ns.formatNumber(growPercent * 100, 1)}%`)
-        this.hackStats.set('Weaken %', `${this.ns.formatNumber(weakenPercent * 100, 1)}%`)
-        this.hackStats.set('Hack %', `${this.ns.formatNumber(hackPercent * 100, 1)}%`)
-        this.hackStats.set('= =', '')
-        this.hackStats.set('Total threads available', `${this.ns.formatNumber(totalThreads, 0)}`)
-        this.hackStats.set(' ==', '')
-        this.hackStats.set('Desired Grow Threads', `${this.ns.formatNumber(targetGrowThreads, 0)}`)
-        this.hackStats.set('Desired Weaken Threads', `${this.ns.formatNumber(targetWeakenThreads, 0)}`)
-        this.hackStats.set('Desired Hack Threads', `${this.ns.formatNumber(targetHackThreads, 0)}`)
-
-
         for (const [host, server] of this.serverList.servers) {
             let threadsAvailable = this.maxHostThreads(host);
             if (threadsAvailable < 1) continue;
@@ -255,13 +248,10 @@ export class Hacker {
             }
         }
 
-        this.hackStats.set(' = =', '')
-        this.hackStats.set('Total Grow Threads', `${this.ns.formatNumber(totalGrowThreads, 0)}`)
-        this.hackStats.set('Total Weaken Threads', `${this.ns.formatNumber(totalWeakenThreads, 0)}`)
-        this.hackStats.set('Total Hack Threads', `${this.ns.formatNumber(totalHackThreads, 0)}`)
-        this.hackStats.set('= = ', '')
-        this.hackStats.set(`Grow   Time for ${target}`, `${this.ns.tFormat(this.ns.getGrowTime(target))}`)
-        this.hackStats.set(`Weaken Time for ${target}`, `${this.ns.tFormat(this.ns.getWeakenTime(target))}`)
-        this.hackStats.set(`Hack   Time for ${target}`, `${this.ns.tFormat(this.ns.getHackTime(target))}`)
+        this.hackStats.set('Threads Available', `${this.ns.formatNumber(totalThreads, 0)}`)
+        this.hackStats.set('HGW', `${'Hack'.padEnd(6)} / ${'Grow'.padEnd(6)} / ${'Weaken'.padEnd(6)}`)
+        this.hackStats.set('H/G/W %', `${(this.ns.formatNumber(hackPercent * 100, 1) + '%').padEnd(6)} / ${(this.ns.formatNumber(growPercent * 100, 1) + '%').padEnd(6)} / ${(this.ns.formatNumber(weakenPercent * 100, 1) + '%').padEnd(6)}`)
+        this.hackStats.set('H/G/W Threads', `${this.ns.formatNumber(totalHackThreads, 0).padEnd(6)} / ${this.ns.formatNumber(totalGrowThreads, 0).padEnd(6)} / ${this.ns.formatNumber(totalWeakenThreads, 0).padEnd(6)}`)
+        this.hackStats.set('Threads used', `${this.ns.formatNumber(totalHackThreads + totalGrowThreads + totalWeakenThreads, 0)}`)
     }
 }
