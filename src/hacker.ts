@@ -2,6 +2,7 @@ import { NS } from '@ns';
 import { ServerList } from '/lib/ServerList';
 import { Tools } from '/lib/tools';
 import { printStats } from '/lib/format';
+import { LINE_HEIGHT, TITLE_HEIGHT } from '/lib/ui';
 
 
 const sleepMillis = 1000;
@@ -10,10 +11,9 @@ const MAX_THREADS = 100;
 
 export async function main(ns: NS): Promise<void> {
     ns.disableLog('ALL');
-    const titleHeight = 33;
-    const lineHeight = 23.5;
     ns.ui.openTail();
-    ns.ui.resizeTail(600, titleHeight + (lineHeight * 12));
+    ns.ui.resizeTail(600, TITLE_HEIGHT + (LINE_HEIGHT * 12));
+    ns.print("Hacker is booting up, please wait...");
 
     const hacker = new Hacker(ns);
 
@@ -43,9 +43,6 @@ export class Hacker {
     private totalThreads = 0;
     private reHack = true;
 
-    private lastTick: number = Date.now();
-    private tickStart: number = Date.now();
-
     private stats = new Map<string, string>();
     private targetStats = new Map<string, string>();
     private hackStats = new Map<string, string>();
@@ -58,9 +55,6 @@ export class Hacker {
     }
 
     public async tick() {
-        this.lastTick = this.tickStart;
-        this.tickStart = Date.now();
-
         await this.serverList.onTick();
         await this.tools.onTick();
 
@@ -96,11 +90,6 @@ export class Hacker {
     }
 
     private async updateLog() {
-        const now = new Date();
-        const tickTime = Date.now() - this.tickStart;
-        const tickDelay = this.tickStart - this.lastTick;
-
-        this.stats.set('Time', `${now.toLocaleTimeString()} - TickTime: ${tickTime}ms - TickDelay: ${tickDelay}ms`);
         this.stats.set('Target', this.target);
 
         const money = `$${this.ns.formatNumber(this.ns.getServerMoneyAvailable(this.target), 0)} / $${this.ns.formatNumber(this.ns.getServerMaxMoney(this.target), 0)}`;
@@ -115,6 +104,7 @@ export class Hacker {
         this.ns.clearLog();
         this.ns.ui.setTailTitle(`Hacking ${this.target} (${money})`);
 
+        this.ns.ui.resizeTail(600, TITLE_HEIGHT + (LINE_HEIGHT * (this.stats.size + this.targetStats.size + this.hackStats.size)));
         printStats(this.ns, this.stats);
         printStats(this.ns, this.targetStats);
         printStats(this.ns, this.hackStats);
@@ -247,10 +237,9 @@ export class Hacker {
             }
         }
 
-        this.hackStats.set('Threads Available', `${this.ns.formatNumber(totalThreads, 0)}`);
-        this.hackStats.set('HGW', `${'Hack'.padEnd(6)} / ${'Grow'.padEnd(6)} / ${'Weaken'.padEnd(6)}`);
-        this.hackStats.set('H/G/W %', `${(this.ns.formatNumber(hackPercent * 100, 1) + '%').padEnd(6)} / ${(this.ns.formatNumber(growPercent * 100, 1) + '%').padEnd(6)} / ${(this.ns.formatNumber(weakenPercent * 100, 1) + '%').padEnd(6)}`);
-        this.hackStats.set('H/G/W Threads', `${this.ns.formatNumber(totalHackThreads, 0).padEnd(6)} / ${this.ns.formatNumber(totalGrowThreads, 0).padEnd(6)} / ${this.ns.formatNumber(totalWeakenThreads, 0).padEnd(6)}`);
-        this.hackStats.set('Threads used', `${this.ns.formatNumber(totalHackThreads + totalGrowThreads + totalWeakenThreads, 0)}`);
+        this.hackStats.set('Threads', `${this.ns.formatNumber(totalHackThreads + totalGrowThreads + totalWeakenThreads)} / ${this.ns.formatNumber(totalThreads)}`);
+        this.hackStats.set('HGW', `${'Hack'.padEnd(8)} / ${'Grow'.padEnd(8)} / ${'Weaken'.padEnd(8)}`);
+        this.hackStats.set('H/G/W %', `${(this.ns.formatNumber(hackPercent * 100) + '%').padEnd(8)} / ${(this.ns.formatNumber(growPercent * 100) + '%').padEnd(8)} / ${(this.ns.formatNumber(weakenPercent * 100) + '%').padEnd(8)}`);
+        this.hackStats.set('H/G/W Threads', `${this.ns.formatNumber(totalHackThreads, 0).padEnd(8)} / ${this.ns.formatNumber(totalGrowThreads, 0).padEnd(8)} / ${this.ns.formatNumber(totalWeakenThreads, 0).padEnd(8)}`);
     }
 }

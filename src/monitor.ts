@@ -1,17 +1,18 @@
 import { NS, Server } from '@ns';
-import { formatAsTable } from '/lib/table';
 import { printStats } from '/lib/format';
+import { LINE_HEIGHT, TITLE_HEIGHT } from '/lib/ui';
+import { Spinner } from '/lib/Spinner';
 
 
 const sleepMillis = 1000;
 const MAX_SCAN_DEPTH = 25;
+const WINDOW_WIDTH = 400;
 
 export async function main(ns: NS): Promise<void> {
     ns.disableLog('ALL');
-    const titleHeight = 33;
-    const lineHeight = 23.5;
     ns.ui.openTail();
-    ns.ui.resizeTail(600, titleHeight + (lineHeight * 5));
+    ns.ui.resizeTail(WINDOW_WIDTH, TITLE_HEIGHT + (LINE_HEIGHT * 1));
+    ns.print('Monitor is booting up, please wait...');
 
     const monitor = new Monitor(ns, ns.args[0] as string ?? 'n00dles');
 
@@ -25,6 +26,7 @@ export async function main(ns: NS): Promise<void> {
 export class Monitor {
     private ns: NS;
     private target: string;
+    private spinner: Spinner;
 
     private hosts = new Set<string>();
     public servers = new Map<string, Server>();
@@ -39,44 +41,31 @@ export class Monitor {
     constructor(ns: NS, target: string) {
         this.ns = ns;
         this.target = target;
-        this.lastHostScan = Date.now();
-        this.getHosts('home', 0);
-        for (const host of this.hosts) {
-            this.servers.set(host, this.ns.getServer(host));
-        }
+        this.spinner = new Spinner();
     }
 
     public async tick() {
         this.lastTick = this.tickStart;
         this.tickStart = Date.now();
 
-        if (this.lastHostScan <= this.tickStart - 60000) {
-            // this.lastHostScan = this.tickStart;
-            // this.getHosts('home', 0);
-            // for (const host of this.hosts) {
-            //     this.servers.set(host, this.ns.getServer(host));
-            // }
-        }
-
         await this.updateLog();
     }
 
     private async updateLog() {
         const now = new Date();
-        const tickTime = Date.now() - this.tickStart;
-        const tickDelay = this.tickStart - this.lastTick;
 
-        this.stats.set('Time', `${now.toLocaleTimeString()} - TickTime: ${tickTime}ms - TickDelay: ${tickDelay}ms`);
-        this.stats.set('Target', this.target);
-
-        const target = this.servers.get(this.target);
-        this.stats.set('Has Admin', target?.hasAdminRights ? 'Yes' : 'No');
+        const target = this.ns.getServer(this.target);
         this.stats.set('Has Root', this.ns.hasRootAccess(this.target) ? 'Yes' : 'No');
         this.stats.set('Money', `$${this.ns.formatNumber(target?.moneyAvailable ?? -1)} / $${this.ns.formatNumber(target?.moneyMax ?? -1)}`);
+        this.stats.set('Security', `${this.ns.formatNumber(this.ns.getServerSecurityLevel(this.target))} (Min: ${this.ns.formatNumber(this.ns.getServerMinSecurityLevel(this.target), 0)})`);
+
+        this.stats.set('Has Root', this.ns.hasRootAccess(this.target) ? 'Yes' : 'No');
+        this.stats.set('Has Root', this.ns.hasRootAccess(this.target) ? 'Yes' : 'No');
 
         this.ns.clearLog();
-        this.ns.ui.setTailTitle(`Monitoring ${this.target}`);
+        this.ns.ui.setTailTitle(`[${this.spinner.next()}]${this.target}`);
 
+        this.ns.ui.resizeTail(WINDOW_WIDTH, TITLE_HEIGHT + (LINE_HEIGHT * this.stats.size));
         printStats(this.ns, this.stats);
         this.ns.ui.renderTail();
     }

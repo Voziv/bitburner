@@ -1,54 +1,62 @@
 import { NS } from '@ns';
 import { Host, Hosts, scan } from '/lib/servers';
 import { tFormatAsTable } from '/lib/table';
+import { ServerList } from '/lib/ServerList';
 
 
 export async function main(ns: NS): Promise<void> {
     ns.disableLog('ALL');
     ns.clearLog();
-    const hosts: Hosts = {};
 
-    await scan(ns, 'home', hosts, 1);
-    const sortedHosts = Object.values(hosts).sort((a: Host, b: Host) => {
-        if (a.portsRequired === b.portsRequired) {
-            if (a.hackLevel === b.hackLevel) {
-                if (a.maxMoney === b.maxMoney) {
-                    return a.name.localeCompare(b.name);
-                }
-                return a.maxMoney - b.maxMoney;
-            }
-            return a.hackLevel - b.hackLevel;
-        }
-        return a.portsRequired - b.portsRequired;
-    });
+    const serverList = new ServerList(ns);
+    await serverList.onTick();
 
-    ns.tprint(`Found ${Object.keys(hosts).length} hosts`);
-    printHosts(ns, sortedHosts);
-}
-
-function printHosts(ns: NS, hosts: Host[]) {
     const headers = [
         'Name',
-        'Depth',
         'Hack Level',
-        'Cur Money',
-        'Max Money',
-        'Max Ram',
-        '# Ports',
+        'Max $',
+        'Server Growth',
+        'Hack %',
+        'Hack Steal %',
+        'Hack Steal $', // At max money
+        // 'Hack Time',
+        // 'Grow Time',
+        // 'Weaken Time',
+        'Hack / Weaken Time',
+        'Grow / Weaken Time',
     ];
 
-    const data: string[][] = [];
+    const servers = Array.from(serverList.servers.values())
+        .filter(server => !server.hostname.startsWith('voz-'))
+        .filter(server => server.hasAdminRights)
+        .filter(server => server.moneyMax)
+        .filter(server => ns.getHackingLevel() > ns.getServerRequiredHackingLevel(server.hostname));
 
-    for (const host of Object.values(hosts)) {
+    const data: string[][] = [];
+    for (const server of servers) {
         data.push([
-            host.name,
-            ns.formatNumber(host.depth, 0),
-            ns.formatNumber(host.hackLevel, 0),
-            '$' + ns.formatNumber(host.currentMoney, 0),
-            '$' + ns.formatNumber(host.maxMoney, 0),
-            ns.formatRam(host.maxRam, 0),
-            ns.formatNumber(host.portsRequired, 0),
+            server.hostname,
+            ns.formatNumber(server.requiredHackingSkill ?? 0, 0),
+            '$' + ns.formatNumber(server.moneyMax ?? -1, 0),
+            ns.formatNumber(server.serverGrowth ?? -1, 0),
+            ns.formatNumber(ns.hackAnalyzeChance(server.hostname) * 100, 0) + '%',
+            ns.formatNumber(ns.hackAnalyze(server.hostname) * 100) + '%',
+            '$' + ns.formatNumber(ns.hackAnalyze(server.hostname) * ns.getServerMaxMoney(server.hostname), 2),
+            // ns.tFormat(ns.getHackTime(server.hostname)),
+            // ns.tFormat(ns.getGrowTime(server.hostname)),
+            // ns.tFormat(ns.getWeakenTime(server.hostname)),
+            ns.formatNumber(ns.getHackTime(server.hostname) / ns.getWeakenTime(server.hostname) * 100) + '%',
+            ns.formatNumber(ns.getGrowTime(server.hostname) / ns.getWeakenTime(server.hostname) * 100) + '%',
         ]);
     }
+
+    data.sort((a, b) => {
+        const aAmount = ns.hackAnalyze(a[0]) * ns.getServerMaxMoney(a[0]);
+        const bAmount = ns.hackAnalyze(b[0]) * ns.getServerMaxMoney(b[0]);
+        return aAmount - bAmount;
+    });
+
+    ns.ui.clearTerminal();
     tFormatAsTable(ns, headers, data);
+
 }

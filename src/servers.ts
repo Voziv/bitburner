@@ -1,5 +1,6 @@
 import { NS } from '@ns';
 import { printStats } from '/lib/format';
+import { LINE_HEIGHT, TITLE_HEIGHT } from '/lib/ui';
 
 
 const sleepMillis = 1000;
@@ -7,10 +8,8 @@ const sleepMillis = 1000;
 export async function main(ns: NS): Promise<void> {
     ns.disableLog('ALL');
     ns.ui.openTail();
-    const [ windowWidth ] = ns.ui.windowSize();
-    const width = 600;
-    ns.ui.resizeTail(600, 150);
-    ns.ui.moveTail(windowWidth - (width + 250 + 600 + 5), 5);
+    ns.ui.resizeTail(600, TITLE_HEIGHT + (LINE_HEIGHT * 4));
+    ns.print("ServerManager is booting up, please wait...");
 
 
     const serverManager = new ServerManager(ns);
@@ -47,9 +46,9 @@ class ServerManager {
 
 
         if (this.purchasedCount < this.ns.getPurchasedServerLimit()) {
-            await this.purchaseServers();
+            this.purchaseServers();
         } else if (this.upgradeRam <= this.ns.getPurchasedServerMaxRam()) {
-            await this.upgradeServers();
+            this.upgradeServers();
         }
 
         this.updateLog();
@@ -68,9 +67,9 @@ class ServerManager {
 
         this.ns.clearLog();
         if (this.purchasedCount < this.ns.getPurchasedServerLimit()) {
-            this.ns.ui.setTailTitle(`Purchasing ${this.purchasedCount} / ${this.ns.getPurchasedServerLimit()}`);
+            this.ns.ui.setTailTitle(`Purchasing ${this.ns.formatRam(this.currentRam, 0)} (${this.purchasedCount} / ${this.ns.getPurchasedServerLimit()})`);
         } else if (this.upgradeRam <= this.ns.getPurchasedServerMaxRam()) {
-            this.ns.ui.setTailTitle(`Upgrading from ${this.ns.formatRam(this.currentRam, 0)} to ${this.ns.formatRam(this.upgradeRam, 0)} ${this.upgradedCount} / ${this.purchasedCount}`);
+            this.ns.ui.setTailTitle(`Upgrading to ${this.ns.formatRam(this.upgradeRam, 0)} (${this.upgradedCount} / ${this.purchasedCount})`);
         } else {
             this.ns.ui.setTailTitle(`Purchased servers are maxed out`);
             this.ns.exit();
@@ -102,21 +101,19 @@ class ServerManager {
         }
     }
 
-    async purchaseServers() {
-        if (this.ns.getServerMoneyAvailable('home') > this.ns.getPurchasedServerCost(this.currentRam)) {
-            await this.ns.sleep(1);
+    private purchaseServers() {
+        while (this.ns.getServerMoneyAvailable('home') > this.ns.getPurchasedServerCost(this.currentRam) && this.purchasedCount < this.ns.getPurchasedServerLimit()) {
             const serverNumber = `${this.purchasedCount + 1}`.padStart(2, '0');
             this.ns.purchaseServer('voz-drone-' + serverNumber, this.currentRam);
             this.purchasedCount++;
         }
     }
 
-    async upgradeServers() {
+    private upgradeServers() {
         let allUpgraded = true;
         const hosts = this.ns.getPurchasedServers();
 
         for (const host of hosts) {
-            await this.ns.sleep(1);
             if (this.ns.getServerMaxRam(host) >= this.upgradeRam) {
                 continue;
             }
