@@ -18,7 +18,7 @@ export class Tools {
         this.ns = ns;
     }
 
-    public async onTick() {
+    public onTick() {
         let toolCount = 0;
 
         for (const tool of TOOLS) {

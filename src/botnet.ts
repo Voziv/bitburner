@@ -35,11 +35,7 @@ export async function main(ns: NS): Promise<void> {
             return acc + Math.floor((ns.getServerMaxRam(botnetServer.hostname) - ns.getServerUsedRam(botnetServer.hostname) - ((botnetServer.hostname === 'home') ? 16 : 0)) / 1.85);
         }, 0);
 
-    const servers = Array.from(serverList.servers.values())
-        .filter(server => !server.hostname.startsWith('voz-'))
-        .filter(server => server.hasAdminRights)
-        .filter(server => server.moneyMax)
-        //.filter (server => ns.getHackingLevel() > ns.getServerRequiredHackingLevel(server.hostname));
+    const servers = Array.from(serverList.botNet.values())
 
     const data: string[][] = [];
     for (const server of servers) {

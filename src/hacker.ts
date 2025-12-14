@@ -1,19 +1,22 @@
-import { NS } from '@ns';
+import { NS, Server } from '@ns';
 import { ServerList } from '/lib/ServerList';
-import { Tools } from '/lib/tools';
 import { printStats } from '/lib/format';
 import { LINE_HEIGHT, TITLE_HEIGHT } from '/lib/ui';
 
 
 const sleepMillis = 1000;
-const HACK_SCRIPT_RAM = 1.6 + 0.2;
+
+// Static value because hack.js only ever uses one method. The max ram usage is 1.85gb
+const HACK_SCRIPT_RAM = 1.6 + 0.25;
+
+// Upper limit on threads?
 const MAX_THREADS = 100;
 
 export async function main(ns: NS): Promise<void> {
     ns.disableLog('ALL');
     ns.ui.openTail();
     ns.ui.resizeTail(600, TITLE_HEIGHT + (LINE_HEIGHT * 12));
-    ns.print("Hacker is booting up, please wait...");
+    ns.print('Hacker is booting up, please wait...');
 
     const hacker = new Hacker(ns);
 
@@ -24,20 +27,22 @@ export async function main(ns: NS): Promise<void> {
 }
 
 enum HackState {
-    Idle,
-    Growing,
-    Weakening,
-    Hacking,
+    Idle = 'Idle',
+    Growing = 'Growing',
+    Weakening = 'Weakening',
+    Hacking = 'Hacking',
 }
 
 export class Hacker {
-    private ns: NS;
+    private readonly ns: NS;
 
     private serverList: ServerList;
-    private tools: Tools;
+    private lastServerListUpdate = 0;
+
 
     private target = 'n00dles';
     private hackState: HackState = HackState.Idle;
+    private botNet = new Map<string, Server>();
 
 
     private totalThreads = 0;
@@ -51,25 +56,15 @@ export class Hacker {
     constructor(ns: NS) {
         this.ns = ns;
         this.serverList = new ServerList(ns);
-        this.tools = new Tools(ns);
     }
 
     public async tick() {
         await this.serverList.onTick();
-        await this.tools.onTick();
 
-        // Get admin on as many servers as possible.
-        for (const [ host, server ] of this.serverList.servers) {
-            if (!server.hasAdminRights && this.ns.getServerNumPortsRequired(host) <= this.tools.toolCount) {
-                this.tools.openPorts(host);
-                this.ns.nuke(host);
-            }
-        }
-
-        const newTotalThreads = this.countThreads();
-        if (newTotalThreads !== this.totalThreads) {
-            this.totalThreads = newTotalThreads;
-            this.reHack = true;
+        if (this.serverList.getLastUpdate() > this.lastServerListUpdate) {
+            this.lastServerListUpdate = this.serverList.getLastUpdate();
+            // Recalculate values that are based on threads.
+            this.totalThreads = this.countThreads();
         }
 
         const newTarget = this.pickBestTarget();
@@ -77,20 +72,34 @@ export class Hacker {
             this.ns.print(`New target selected: ${newTarget}`);
             this.ns.print(`Hack Level: ${this.ns.getServerRequiredHackingLevel(newTarget)}`);
             this.target = newTarget;
-            this.reHack = true;
         }
 
-
-        if (this.reHack) {
-            await this.hackTarget(this.target);
-            this.reHack = false;
+        if (this.ns.getServerSecurityLevel(this.target) > this.ns.getServerMinSecurityLevel(this.target)) {
+            this.hackState = HackState.Weakening;
+        } else if (this.ns.getServerMoneyAvailable(this.target) < this.ns.getServerMaxMoney(this.target)) {
+            this.hackState = HackState.Growing;
+        } else {
+            this.hackState = HackState.Hacking;
         }
 
         await this.updateLog();
+
+        switch (this.hackState) {
+            case HackState.Hacking:
+                await this.hack(this.target);
+                break;
+            case HackState.Growing:
+                await this.grow(this.target);
+                break;
+            case HackState.Weakening:
+                await this.weaken(this.target);
+                break;
+        }
     }
 
     private async updateLog() {
         this.stats.set('Target', this.target);
+        this.stats.set('State', this.hackState.toString());
 
         const money = `$${this.ns.formatNumber(this.ns.getServerMoneyAvailable(this.target), 0)} / $${this.ns.formatNumber(this.ns.getServerMaxMoney(this.target), 0)}`;
 
@@ -123,7 +132,7 @@ export class Hacker {
     private maxHostThreads(host: string): number {
         let serverRam = this.ns.getServerMaxRam(host);
         if (host === 'home') {
-            serverRam -= 64;
+            serverRam -= 16;
         }
 
         if (serverRam < HACK_SCRIPT_RAM) {
@@ -134,23 +143,30 @@ export class Hacker {
     }
 
     private pickBestTarget() {
-        let target = this.target;
+        let bestServer = this.ns.getServer(this.target);
+        let bestScore = 0;
 
         for (const [ host, server ] of this.serverList.servers) {
-            if (host === 'home' || host.startsWith('voz-') || !this.ns.hasRootAccess(host)) {
+            if (host === 'home' || server.purchasedByPlayer || !server.hasAdminRights) {
                 continue;
             }
 
-            if (this.ns.hackAnalyzeChance(host) < 0.8) {
-                continue;
-            }
-
-            if (this.ns.getServerMaxMoney(host) > this.ns.getServerMaxMoney(target)) {
-                target = host;
+            const score = this.scoreServer(this.ns, host);
+            if (score > bestScore) {
+                bestScore = score;
+                bestServer = server;
             }
         }
 
-        return target;
+        return bestServer.hostname;
+    }
+
+    private scoreServer(ns: NS, target: string): number {
+        const stealPercent = ns.hackAnalyze(target);
+        const stealAmount = stealPercent * ns.getServerMaxMoney(target);
+        const stealAmountPerTime = stealAmount / ns.getHackTime(target);
+        const score = stealAmountPerTime * ns.hackAnalyzeChance(target);
+        return score;
     }
 
     private async hackTarget(target: string) {
@@ -241,5 +257,83 @@ export class Hacker {
         this.hackStats.set('HGW', `${'Hack'.padEnd(8)} / ${'Grow'.padEnd(8)} / ${'Weaken'.padEnd(8)}`);
         this.hackStats.set('H/G/W %', `${(this.ns.formatNumber(hackPercent * 100) + '%').padEnd(8)} / ${(this.ns.formatNumber(growPercent * 100) + '%').padEnd(8)} / ${(this.ns.formatNumber(weakenPercent * 100) + '%').padEnd(8)}`);
         this.hackStats.set('H/G/W Threads', `${this.ns.formatNumber(totalHackThreads, 0).padEnd(8)} / ${this.ns.formatNumber(totalGrowThreads, 0).padEnd(8)} / ${this.ns.formatNumber(totalWeakenThreads, 0).padEnd(8)}`);
+    }
+
+    private async weaken(target: string) {
+        const securityLevelTarget = this.ns.getServerMinSecurityLevel(target);
+        let securityLevel = this.ns.getServerSecurityLevel(target);
+
+        let threadsAvailable = this.totalThreads;
+
+        for (const [ host, server ] of this.serverList.botNet) {
+            this.ns.scp('hack.js', host, 'home');
+            const weakenAmount = this.ns.weakenAnalyze(1, server.cpuCores);
+            const threadsNeededToWeaken = Math.ceil((securityLevel - securityLevelTarget) / weakenAmount);
+            const threads = Math.min(this.maxHostThreads(host), threadsNeededToWeaken);
+            this.ns.exec('hack.js', host, {
+                threads,
+                ramOverride: HACK_SCRIPT_RAM,
+            }, 'weaken', target);
+
+            securityLevel -= weakenAmount * threads;
+            threadsAvailable -= threads;
+
+            if (threadsAvailable < 1) break;
+            if (securityLevel <= securityLevelTarget) break;
+        }
+
+        await this.ns.sleep(this.ns.getWeakenTime(target) + 1000);
+    }
+
+    private async grow(target: string) {
+        const player = this.ns.getPlayer();
+        const targetServer = this.ns.getServer(target);
+        const maxMoney = this.ns.getServerMaxMoney(target);
+
+        let doGrow = true;
+
+        let threadsAvailable = this.totalThreads;
+        let threadsNeeded = this.ns.formulas.hacking.growThreads(targetServer, player, maxMoney);
+        let weakenThreadsNeeded = 0;
+
+        for (const [ host, server ] of this.serverList.botNet) {
+            let threads = Math.min(this.maxHostThreads(host), threadsNeeded);
+            const securityIncrease = this.ns.growthAnalyzeSecurity(threads, target, server.cpuCores);
+            this.ns.exec('hack.js', host, {
+                threads,
+                ramOverride: HACK_SCRIPT_RAM,
+            }, 'grow', target);
+
+            threadsNeeded -= threads;
+            threadsAvailable -= threads;
+
+            if (threadsAvailable < 1) break;
+            if (threadsNeeded < 1) break;
+        }
+
+        await this.ns.sleep(this.ns.getGrowTime(target) + 1000);
+    }
+
+    private async hack(target: string) {
+        const maxMoney = this.ns.getServerMaxMoney(target);
+
+        let threadsAvailable = this.totalThreads;
+        let threadsNeeded = this.ns.hackAnalyzeThreads(target, maxMoney * 0.95);
+
+        for (const [ host, server ] of this.serverList.botNet) {
+            const threads = Math.min(this.maxHostThreads(host), threadsNeeded);
+            this.ns.exec('hack.js', host, {
+                threads,
+                ramOverride: HACK_SCRIPT_RAM,
+            }, 'hack', target);
+
+            threadsNeeded -= threads;
+            threadsAvailable -= threads;
+
+            if (threadsAvailable < 1) break;
+            if (threadsNeeded < 1) break;
+        }
+
+        await this.ns.sleep(this.ns.getHackTime(target) + 1000);
     }
 }
