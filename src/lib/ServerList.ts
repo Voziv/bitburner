@@ -25,7 +25,7 @@ export class ServerList {
 
     public async onTick() {
         const now = Date.now();
-        if (this.lastUpdate <= now - 60000) {
+        if (this.lastUpdate <= now - 10000) {
             this.lastUpdate = now;
             this.tools.onTick();
             this.refreshServers();

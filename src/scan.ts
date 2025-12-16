@@ -20,11 +20,7 @@ export async function main(ns: NS): Promise<void> {
         'Hack Steal %',
         'Hack Steal $', // At max money
         'Hack Steal $ / Minute',
-        // 'Hack Time',
-        // 'Grow Time',
-        'Weaken Time',
-        // 'Hack / Weaken Time',
-        // 'Grow / Weaken Time',
+        'Score',
     ];
 
     const player = ns.getPlayer();
@@ -38,14 +34,19 @@ export async function main(ns: NS): Promise<void> {
     const servers = Array.from(serverList.servers.values())
         .filter(server => !server.hostname.startsWith('voz-'))
         .filter(server => server.hasAdminRights)
-        .filter(server => server.moneyMax)
-        //.filter (server => ns.getHackingLevel() > ns.getServerRequiredHackingLevel(server.hostname));
+        .filter(server => ns.formulas.hacking.hackChance(server, player) > 0.25)
+        .filter(server => server.moneyMax);
 
     const data: string[][] = [];
     for (const server of servers) {
         server.hackDifficulty = server.minDifficulty;
+        const server2 = ns.getServer(server.hostname);
+        server2.hackDifficulty = server2.minDifficulty; // simulate the score being super low
 
         const weakenTime = ns.formulas.hacking.weakenTime(server, player);
+        const hackPercent = ns.formulas.hacking.hackPercent(server, player);
+        const hackChance = ns.formulas.hacking.hackChance(server, player);
+        const hackTime = ns.formulas.hacking.hackTime(server, player);
 
         data.push([
             server.hostname,
@@ -53,26 +54,18 @@ export async function main(ns: NS): Promise<void> {
             '$' + ns.formatNumber(server.moneyMax ?? -1, 0),
             ns.formatNumber(server.serverGrowth ?? -1, 0),
             `${ns.formatNumber(ns.getServerSecurityLevel(server.hostname), 0)} (min. ${ns.formatNumber(ns.getServerMinSecurityLevel(server.hostname), 0)})`,
-            ns.formatNumber(ns.hackAnalyzeChance(server.hostname) * 100, 0) + '%',
-            ns.formatNumber(ns.hackAnalyze(server.hostname) * 100) + '%',
-            '$' + ns.formatNumber(ns.hackAnalyze(server.hostname) * ns.getServerMaxMoney(server.hostname), 2),
+            ns.formatNumber(hackChance * 100, 0) + '%',
+            ns.formatNumber(hackPercent * 100) + '%',
+            '$' + ns.formatNumber(hackPercent * ns.getServerMaxMoney(server.hostname), 2),
             '$' + ns.formatNumber(getHackMoneyPerTime(ns, server.hostname, maxThreads), 2),
-            // ns.tFormat(ns.getHackTime(server.hostname)),
-            // ns.tFormat(ns.getGrowTime(server.hostname)),
-            ns.tFormat(weakenTime),
-            // ns.formatNumber(ns.getHackTime(server.hostname) / ns.getWeakenTime(server.hostname) * 100) + '%',
-            // ns.formatNumber(ns.getGrowTime(server.hostname) / ns.getWeakenTime(server.hostname) * 100) + '%',
+            ns.formatNumber(scoreServer(ns, server.hostname)),
         ]);
     }
 
     data.sort((a, b) => {
-        const aMoneyPerMin = getHackMoneyPerTime(ns, a[0], maxThreads);
-        const bMoneyPerMin = getHackMoneyPerTime(ns, b[0], maxThreads);
-        return aMoneyPerMin - bMoneyPerMin;
-
-        const aAmount = ns.hackAnalyze(a[0]) * ns.getServerMaxMoney(a[0]);
-        const bAmount = ns.hackAnalyze(b[0]) * ns.getServerMaxMoney(b[0]);
-        return aAmount - bAmount;
+        const aScore = scoreServer(ns, a[0]);
+        const bScore = scoreServer(ns, b[0]);
+        return aScore - bScore;
     });
 
     ns.ui.clearTerminal();
@@ -81,11 +74,15 @@ export async function main(ns: NS): Promise<void> {
 }
 
 function getHackMoneyPerTime(ns: NS, target: string, maxThreads: number): number {
+    return scoreServer(ns, target) * maxThreads;
+}
+
+function scoreServer(ns: NS, target: string): number {
+    const server = ns.getServer(target);
+    server.hackDifficulty = server.minDifficulty; // simulate the score being super low
     const player = ns.getPlayer();
-    const stealPercent = ns.hackAnalyze(target);
+
+    const stealPercent = ns.formulas.hacking.hackPercent(server, player);
     const stealAmount = stealPercent * ns.getServerMaxMoney(target);
-    const stealAmountPerTime = stealAmount / ns.getHackTime(target);
-    const stealAmountAllThreads = stealAmount / ns.getHackTime(target);
-    const score = stealAmountAllThreads * ns.hackAnalyzeChance(target);
-    return score;
+    return stealAmount / ns.formulas.hacking.hackTime(server, player);
 }

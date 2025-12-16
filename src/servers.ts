@@ -26,6 +26,7 @@ class ServerManager {
     private purchasedCount: number;
     private currentRam = 4;
     private upgradeRam = 8;
+    private upgradeCost = 0;
     private upgradedCount = 0;
 
     private lastTick: number = Date.now();
@@ -63,6 +64,7 @@ class ServerManager {
         this.uiBox1.set('Servers', `${this.purchasedCount}`);
         this.uiBox1.set('RAM', `${this.ns.formatRam(this.currentRam, 0)} -> ${this.ns.formatRam(this.upgradeRam, 0)}`);
         this.uiBox1.set('Upgrade ', `${this.upgradedCount} / ${this.purchasedCount}`);
+        this.uiBox1.set('Upgrade Cost ', `$${this.ns.formatNumber(this.upgradeCost, 0)}`);
 
 
         this.ns.clearLog();
@@ -75,6 +77,7 @@ class ServerManager {
             this.ns.exit();
         }
 
+        this.ns.ui.resizeTail(600, TITLE_HEIGHT + (LINE_HEIGHT * this.uiBox1.size));
         printStats(this.ns, this.uiBox1);
         this.ns.ui.renderTail();
     }
@@ -97,6 +100,8 @@ class ServerManager {
         for (const host of hosts) {
             if (this.ns.getServerMaxRam(host) >= this.upgradeRam) {
                 this.upgradedCount++;
+            } else {
+                this.upgradeCost = this.ns.getPurchasedServerUpgradeCost(host, this.upgradeRam)
             }
         }
     }
