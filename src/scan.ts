@@ -40,13 +40,9 @@ export async function main(ns: NS): Promise<void> {
     const data: string[][] = [];
     for (const server of servers) {
         server.hackDifficulty = server.minDifficulty;
-        const server2 = ns.getServer(server.hostname);
-        server2.hackDifficulty = server2.minDifficulty; // simulate the score being super low
 
-        const weakenTime = ns.formulas.hacking.weakenTime(server, player);
         const hackPercent = ns.formulas.hacking.hackPercent(server, player);
         const hackChance = ns.formulas.hacking.hackChance(server, player);
-        const hackTime = ns.formulas.hacking.hackTime(server, player);
 
         data.push([
             server.hostname,
@@ -79,8 +75,10 @@ function getHackMoneyPerTime(ns: NS, target: string, maxThreads: number): number
 
 function scoreServer(ns: NS, target: string): number {
     const server = ns.getServer(target);
-    server.hackDifficulty = server.minDifficulty; // simulate the score being super low
     const player = ns.getPlayer();
+    server.hackDifficulty = server.minDifficulty; // simulate the score being super low
+    server.moneyAvailable = server.moneyMax; // simulate the score being super low
+    if (ns.formulas.hacking.hackChance(server, player) < 1) return 0;
 
     const stealPercent = ns.formulas.hacking.hackPercent(server, player);
     const stealAmount = stealPercent * ns.getServerMaxMoney(target);
