@@ -49,7 +49,7 @@ class ServerManager {
         if (this.purchasedCount < this.ns.getPurchasedServerLimit()) {
             this.purchaseServers();
         } else if (this.upgradeRam <= this.ns.getPurchasedServerMaxRam()) {
-            this.upgradeServers();
+            await this.upgradeServers();
         }
 
         this.updateLog();
@@ -114,27 +114,31 @@ class ServerManager {
         }
     }
 
-    private upgradeServers() {
-        let allUpgraded = true;
-        const hosts = this.ns.getPurchasedServers();
+    private async upgradeServers() {
+        while (this.ns.getServerMoneyAvailable('home') > this.upgradeCost && this.upgradeRam <= this.ns.getPurchasedServerMaxRam()) {
+            await this.ns.sleep(25);
+            const hosts = this.ns.getPurchasedServers();
+            let allUpgraded = true;
 
-        for (const host of hosts) {
-            if (this.ns.getServerMaxRam(host) >= this.upgradeRam) {
-                continue;
+            for (const host of hosts) {
+                if (this.ns.getServerMaxRam(host) >= this.upgradeRam) {
+                    continue;
+                }
+
+                if (this.ns.getServerMaxRam(host) < this.upgradeRam) {
+                    allUpgraded = false;
+                }
+
+                if (this.ns.getServerMoneyAvailable('home') > this.ns.getPurchasedServerUpgradeCost(host, this.upgradeRam)) {
+                    this.ns.upgradePurchasedServer(host, this.upgradeRam);
+                    this.upgradedCount++;
+                }
             }
 
-            if (this.ns.getServerMaxRam(host) < this.upgradeRam) {
-                allUpgraded = false;
+            if (allUpgraded) {
+                this.calculateRam();
+                this.updateLog();
             }
-
-            if (this.ns.getServerMoneyAvailable('home') > this.ns.getPurchasedServerUpgradeCost(host, this.upgradeRam)) {
-                this.ns.upgradePurchasedServer(host, this.upgradeRam);
-                this.upgradedCount++;
-            }
-        }
-
-        if (allUpgraded) {
-            this.calculateRam();
         }
     }
 }

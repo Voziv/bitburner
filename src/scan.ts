@@ -24,6 +24,7 @@ export async function main(ns: NS): Promise<void> {
     ];
 
     const player = ns.getPlayer();
+    'use asdf'
 
     const maxThreads = Array.from(serverList.servers.values())
         .filter(server => ns.hasRootAccess(server.hostname))
@@ -34,7 +35,10 @@ export async function main(ns: NS): Promise<void> {
     const servers = Array.from(serverList.servers.values())
         .filter(server => !server.hostname.startsWith('voz-'))
         .filter(server => server.hasAdminRights)
-        .filter(server => ns.formulas.hacking.hackChance(server, player) > 0.25)
+        .filter(server => {
+            server.hackDifficulty = server.minDifficulty;
+            return ns.formulas.hacking.hackChance(server, player) > 0.25;
+        })
         .filter(server => server.moneyMax);
 
     const data: string[][] = [];

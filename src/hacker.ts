@@ -1,7 +1,7 @@
-import {NS} from '@ns';
-import {ServerList} from '/lib/ServerList';
-import {printStats} from '/lib/format';
-import {LINE_HEIGHT, TITLE_HEIGHT} from '/lib/ui';
+import { NS } from '@ns';
+import { ServerList } from '/lib/ServerList';
+import { printStats } from '/lib/format';
+import { LINE_HEIGHT, TITLE_HEIGHT } from '/lib/ui';
 
 
 const sleepMillis = 50;
@@ -36,6 +36,7 @@ export class Hacker {
     private serverList: ServerList;
     private lastServerListUpdate = 0;
     private timeUntilNextAction = 0;
+    private now = Date.now();
 
 
     private target = 'n00dles';
@@ -62,10 +63,10 @@ export class Hacker {
     }
 
     public async tick() {
+        this.now = Date.now();
         await this.serverList.onTick();
 
-        const now = Date.now();
-        this.batches = this.batches.filter((batchTimeout) => batchTimeout > now);
+        this.batches = this.batches.filter((batchTimeout) => batchTimeout > this.now);
 
         if (this.serverList.getLastUpdate() > this.lastServerListUpdate) {
             this.lastServerListUpdate = this.serverList.getLastUpdate();
@@ -74,8 +75,10 @@ export class Hacker {
             this.batch = calculateOptimalBatch(this.ns, this.target, this.totalThreads);
             this.calculateBatchesByHost();
 
-            for (const [host, server] of this.serverList.botNet) {
-                this.ns.scp('hack.js', host, 'home');
+            for (const [ host, server ] of this.serverList.botNet) {
+                if (host !== 'home') {
+                    this.ns.scp('hack.js', host, 'home');
+                }
             }
         }
 
@@ -89,7 +92,24 @@ export class Hacker {
             this.calculateBatchesByHost();
         }
 
-        if (now > this.timeUntilNextAction) {
+
+        // Sanity check
+        let sanity = true;
+        if (this.now > this.timeUntilNextAction) {
+            for (const [ host, botNetServer ] of this.serverList.botNet) {
+                if (this.ns.scriptRunning('hack.js', host)) {
+                    sanity = false;
+                    break;
+                }
+            }
+        }
+
+        if (!sanity) {
+            this.ns.tprint(`ERROR: Time until next action wasn't long enough. There are other scripts running.` + new Date().toString());
+            this.ns.tprint(`ERROR: Now: ${this.now} > timeUntilNextAction: ${this.timeUntilNextAction}. Diff: ${this.timeUntilNextAction - this.now}`);
+            this.ns.tprint(`ERROR: We were in ${this.hackState.toString()} state.`);
+            await this.ns.sleep(5000);
+        } else if (this.now > this.timeUntilNextAction) {
             if (this.ns.getServerSecurityLevel(this.target) > this.ns.getServerMinSecurityLevel(this.target)) {
                 this.hackState = HackState.Weakening;
             } else if (this.ns.getServerMoneyAvailable(this.target) < this.ns.getServerMaxMoney(this.target)) {
@@ -101,13 +121,6 @@ export class Hacker {
             switch (this.hackState) {
                 case HackState.Hacking:
                     this.crudeHack(this.target);
-                    // if (this.batches.length === 0) {
-                    //     this.batch = calculateOptimalBatch(this.ns, this.target, this.availableThreads);
-                    //     if (this.batch.totalThreads > 0) {
-                    //         // Schedule next batch
-                    //         this.hack(this.target);
-                    //     }
-                    // }
                     break;
                 case HackState.Growing:
                     if (this.batches.length === 0) {
@@ -135,6 +148,9 @@ export class Hacker {
         this.targetStats.set('Money', money);
         this.targetStats.set('Security', `${this.ns.formatNumber(this.ns.getServerSecurityLevel(this.target))} (Min: ${this.ns.formatNumber(this.ns.getServerMinSecurityLevel(this.target), 0)})`);
 
+        this.targetStats.set(`Now`, `${new Date(this.now).toTimeString()}`);
+        this.targetStats.set(`TTNA Date`, `${new Date(this.timeUntilNextAction).toTimeString()}`);
+        this.targetStats.set(`TTNA`, `${this.ns.tFormat(this.timeUntilNextAction - this.now)}`);
         this.targetStats.set(`Grow Time`, `${this.ns.tFormat(this.ns.getGrowTime(this.target))}`);
         this.targetStats.set(`Weaken Time`, `${this.ns.tFormat(this.ns.getWeakenTime(this.target))}`);
         this.targetStats.set(`Hack Time`, `${this.ns.tFormat(this.ns.getHackTime(this.target))}`);
@@ -151,7 +167,7 @@ export class Hacker {
 
     private countTotalThreads(): number {
         let threads = 0;
-        for (const [host, server] of this.serverList.botNet) {
+        for (const [ host, server ] of this.serverList.botNet) {
             threads += this.countTotalThreadsOnHost(host);
         }
 
@@ -160,7 +176,7 @@ export class Hacker {
 
     private countAvailableThreads(): number {
         let threads = 0;
-        for (const [host, server] of this.serverList.botNet) {
+        for (const [ host, server ] of this.serverList.botNet) {
             threads += this.countAvailableThreadsOnHost(host);
         }
 
@@ -170,7 +186,7 @@ export class Hacker {
     private countTotalThreadsOnHost(host: string): number {
         let serverRam = this.ns.getServerMaxRam(host);
         if (host === 'home') {
-            serverRam -= 32;
+            serverRam -= (this.ns.getServerMaxRam(host) > 64) ? 32 : 16;
         }
 
         if (serverRam < HACK_SCRIPT_RAM) {
@@ -183,7 +199,7 @@ export class Hacker {
     private countAvailableThreadsOnHost(host: string): number {
         let serverRam = this.ns.getServerMaxRam(host) - this.ns.getServerUsedRam(host);
         if (host === 'home') {
-            serverRam -= 32;
+            serverRam -= (this.ns.getServerMaxRam(host) > 64) ? 32 : 16;
         }
 
         if (serverRam < HACK_SCRIPT_RAM) {
@@ -197,7 +213,7 @@ export class Hacker {
         let bestServer = this.ns.getServer(this.target);
         let bestScore = this.scoreServer(this.ns, this.target);
 
-        for (const [host, server] of this.serverList.servers) {
+        for (const [ host, server ] of this.serverList.servers) {
             if (host === 'home' || server.purchasedByPlayer || !server.hasAdminRights) {
                 continue;
             }
@@ -230,11 +246,15 @@ export class Hacker {
 
         let threadsAvailable = this.totalThreads;
 
-        for (const [host, server] of this.serverList.botNet) {
+        for (const [ host, server ] of this.serverList.botNet) {
+            const serverThreads = this.countAvailableThreadsOnHost(host);
+            if (serverThreads === 0) continue;
+
             this.ns.scp('hack.js', host, 'home');
             const weakenAmount = this.ns.weakenAnalyze(1, server.cpuCores);
             const threadsNeededToWeaken = Math.ceil((securityLevel - securityLevelTarget) / weakenAmount);
-            const threads = Math.min(this.countTotalThreadsOnHost(host), threadsNeededToWeaken);
+            const threads = Math.min(this.countAvailableThreadsOnHost(host), threadsNeededToWeaken);
+            if (threads === 0) continue;
             this.ns.exec('hack.js', host, {
                 threads,
                 ramOverride: HACK_SCRIPT_RAM,
@@ -247,7 +267,7 @@ export class Hacker {
             if (securityLevel <= securityLevelTarget) break;
         }
 
-        this.timeUntilNextAction = Date.now() + this.ns.getWeakenTime(target) + 50;
+        this.timeUntilNextAction = this.now + this.ns.getWeakenTime(target) + 500;
     }
 
     private grow(target: string) {
@@ -255,12 +275,12 @@ export class Hacker {
 
         let batch = calculateBatchForGrowThreads(this.ns, target, threadsAvailable);
         if (batch.length === 0) {
-            throw new Error("Could not calculate a batch for grow threads");
+            throw new Error('Could not calculate a batch for grow threads');
         }
 
-        let [gThreads, gwThreads] = batch;
+        let [ gThreads, gwThreads ] = batch;
 
-        for (const [host, server] of this.serverList.botNet) {
+        for (const [ host, server ] of this.serverList.botNet) {
             let serverThreads = this.countAvailableThreadsOnHost(host);
 
             if (serverThreads > 0 && gThreads > 0) {
@@ -288,11 +308,11 @@ export class Hacker {
             }
         }
 
-        this.timeUntilNextAction = Date.now() + this.ns.getWeakenTime(target) + 50;
+        this.timeUntilNextAction = this.now + this.ns.getWeakenTime(target) + 500;
     }
 
     private calculateBatchesByHost() {
-        for (const [host, botNetServer] of this.serverList.botNet) {
+        for (const [ host, botNetServer ] of this.serverList.botNet) {
             const threadsAvailable = this.countTotalThreadsOnHost(host);
             const batch = calculateOptimalBatch(this.ns, this.target, threadsAvailable, botNetServer.cpuCores);
             if (batch.totalThreads === 0) {
@@ -306,9 +326,10 @@ export class Hacker {
     }
 
     private crudeHack(target: string) {
+        this.ns.tprint('Queuing up a batch. ' + new Date().toString());
         let initialDelay = 0;
 
-        for (const [host, botNetServer] of this.serverList.botNet) {
+        for (const [ host, botNetServer ] of this.serverList.botNet) {
             if (initialDelay >= this.ns.getWeakenTime(target) - 500) break;
 
             let threadsAvailable = this.countAvailableThreadsOnHost(host);
@@ -338,91 +359,13 @@ export class Hacker {
                 }, 'weaken', target, initialDelay, batch.gwDelay);
 
 
-
                 this.batches.push(Date.now() + this.ns.getWeakenTime(target) + initialDelay);
                 threadsAvailable -= batch.totalThreads;
-                initialDelay += 500;
+                initialDelay += 1000;
             }
         }
 
-        this.timeUntilNextAction = Date.now() + this.ns.getWeakenTime(target) + initialDelay + 500;
-    }
-
-    private hack(target: string) {
-        let delayMillis = 0;
-        while (this.availableThreads >= this.batch.totalThreads) {
-            this.scheduleBatch(this.batch, delayMillis);
-            delayMillis += 500;
-        }
-    }
-
-    private scheduleBatch(batch: Batch, delayMillis: number) {
-
-        const weakenTime = this.ns.getWeakenTime(this.target);
-        const hDelay = Math.ceil(weakenTime - this.ns.getHackTime(this.target) - 50);
-        const hwDelay = 0;
-        const gDelay = Math.ceil(weakenTime - this.ns.getGrowTime(this.target) + 50);
-        const gwDelay = 100;
-
-        let hThreads = batch.hThreads;
-        let hwThreads = batch.hwThreads;
-        let gThreads = batch.gThreads;
-        let gwThreads = batch.gwThreads;
-
-        for (const [host, server] of this.serverList.botNet) {
-            let threadsAvailable = this.countAvailableThreadsOnHost(host);
-
-            if (threadsAvailable > 0 && hThreads) {
-                const threads = Math.min(threadsAvailable, hThreads);
-
-                this.ns.exec('hack.js', host, {
-                    threads,
-                    ramOverride: HACK_SCRIPT_RAM,
-                }, 'hack', this.target, delayMillis, hDelay);
-
-                threadsAvailable -= threads;
-                hThreads -= threads;
-            }
-
-            if (threadsAvailable > 0 && hwThreads) {
-                const threads = Math.min(threadsAvailable, hwThreads);
-
-                this.ns.exec('hack.js', host, {
-                    threads,
-                    ramOverride: HACK_SCRIPT_RAM,
-                }, 'weaken', this.target, delayMillis, hwDelay);
-
-                threadsAvailable -= threads;
-                hwThreads -= threads;
-            }
-
-            if (threadsAvailable > 0 && gThreads > 0) {
-                const threads = Math.min(threadsAvailable, gThreads);
-
-                this.ns.exec('hack.js', host, {
-                    threads,
-                    ramOverride: HACK_SCRIPT_RAM,
-                }, 'grow', this.target, delayMillis, gDelay);
-
-                threadsAvailable -= threads;
-                gThreads -= threads;
-            }
-
-            if (threadsAvailable > 0 && gwThreads > 0) {
-                const threads = Math.min(threadsAvailable, gwThreads);
-
-                this.ns.exec('hack.js', host, {
-                    threads,
-                    ramOverride: HACK_SCRIPT_RAM,
-                }, 'weaken', this.target, delayMillis, gwDelay);
-
-                threadsAvailable -= threads;
-                gwThreads -= threads;
-            }
-        }
-
-        this.batches.push(Date.now() + Math.ceil(this.ns.getWeakenTime(this.target)));
-        this.availableThreads -= batch.totalThreads;
+        this.timeUntilNextAction = this.now + this.ns.getWeakenTime(target) + initialDelay + 5000;
     }
 }
 
@@ -430,11 +373,12 @@ function calculateBatchForGrowThreads(ns: NS, target: string, threadsAvailable: 
     const player = ns.getPlayer();
     const server = ns.getServer(target);
     server.hackDifficulty = server.minDifficulty;
+
     /**
      * Grow threads
      */
-    const gThreadsMax = threadsAvailable;
-    const gThreads = Math.ceil(ns.formulas.hacking.growThreads(server, player, <number>server.moneyMax, cpuCores));
+    const gThreadsMax = Math.floor(threadsAvailable * 0.95);
+    let gThreads = Math.min(Math.ceil(ns.formulas.hacking.growThreads(server, player, <number>server.moneyMax, cpuCores)), gThreadsMax);
     if (gThreads > gThreadsMax) {
         return [];
     }
@@ -442,21 +386,26 @@ function calculateBatchForGrowThreads(ns: NS, target: string, threadsAvailable: 
     /**
      * GrowWeaken Threads
      */
-    const gwThreadsMax = (threadsAvailable - gThreads);
-    const growSecurityIncrease = ns.growthAnalyzeSecurity(gThreads, undefined, cpuCores);
+    const gwThreadsMax = (threadsAvailable * 0.5);
     let gwThreads = 0;
-    for (gwThreads = 1; gwThreads <= gwThreadsMax; gwThreads++) {
-        const weakenAmount = calculateWeakenAmount(ns, gwThreads, cpuCores);
-        if (weakenAmount > growSecurityIncrease) {
+    for (gThreads; gThreads > 0; gThreads--) {
+        const growSecurityIncrease = ns.growthAnalyzeSecurity(gThreads, undefined, cpuCores);
+        for (gwThreads = 1; gwThreads <= gwThreadsMax; gwThreads++) {
+            const weakenAmount = calculateWeakenAmount(ns, gwThreads, cpuCores);
+            if (weakenAmount > growSecurityIncrease) {
+                break;
+            }
+        }
+        if ((gwThreads + gThreads) <= threadsAvailable) {
             break;
         }
     }
 
-    if (gwThreads > gwThreadsMax) {
+    if ((gwThreads + gThreads) > threadsAvailable) {
         return [];
     }
 
-    return [gThreads, gwThreads];
+    return [ gThreads, gwThreads ];
 }
 
 function calculateBatchForHackThreads(ns: NS, target: string, threadsAvailable: number, cpuCores = 1, hackPct: number, hThreads: number): number[] {
@@ -495,7 +444,7 @@ function calculateBatchForHackThreads(ns: NS, target: string, threadsAvailable: 
      */
     const gThreadsMax = (threadsAvailable - hThreads - hwThreads);
     let gThreads = Math.ceil(ns.formulas.hacking.growThreads(server, player, <number>server.moneyMax, cpuCores));
-    gThreads = Math.ceil(gThreads * 1.3)
+    gThreads = Math.ceil(gThreads * 1.3);
     if (gThreads > gThreadsMax) {
         return [];
     }
@@ -522,12 +471,14 @@ function calculateBatchForHackThreads(ns: NS, target: string, threadsAvailable: 
         return [];
     }
 
-    return [hThreads, hwThreads, gThreads, gwThreads];
+    return [ hThreads, hwThreads, gThreads, gwThreads ];
 }
 
 export function calculateOptimalBatch(ns: NS, target: string, threadsAvailable: number, cpuCores = 1): Batch {
     const player = ns.getPlayer();
-    const weakenTime = ns.getWeakenTime(target);
+    const targetServer = ns.getServer(target);
+    targetServer.hackDifficulty = targetServer.minDifficulty;
+    const weakenTime = ns.formulas.hacking.weakenTime(targetServer, player);
 
     const batch = {
         hThreads: 0,
@@ -536,20 +487,20 @@ export function calculateOptimalBatch(ns: NS, target: string, threadsAvailable: 
         gwThreads: 0,
         totalThreads: 0,
 
-        hDelay: Math.ceil(weakenTime - ns.getHackTime(target) - 50),
+        hDelay: Math.ceil(weakenTime - ns.formulas.hacking.hackTime(targetServer, player) - 200),
         hwDelay: 0,
-        gDelay: Math.ceil(weakenTime - ns.getGrowTime(target) + 50),
-        gwDelay: 100,
+        gDelay: Math.ceil(weakenTime - ns.formulas.hacking.growTime(targetServer, player) + 200),
+        gwDelay: 400,
     };
 
-    const hackPct = ns.formulas.hacking.hackPercent(ns.getServer(target), player);
+    const hackPct = ns.formulas.hacking.hackPercent(targetServer, player);
 
     // We have a budget of about 100 loops per server to calculate percentages (Keeps the work needed to a minimum)
     if (threadsAvailable > 256) {
         for (let targetPercent = 0.05; targetPercent <= 0.95; targetPercent += 0.05) {
             const hThreads = Math.floor(targetPercent / hackPct);
             const newBatch = calculateBatchForHackThreads(ns, target, threadsAvailable, cpuCores, hackPct, hThreads);
-            if (newBatch.length === 0) {
+            if (newBatch.length === 0 || newBatch.find(value => value === 0)) {
                 break;
             }
 
@@ -558,11 +509,11 @@ export function calculateOptimalBatch(ns: NS, target: string, threadsAvailable: 
             batch.gThreads = newBatch[2];
             batch.gwThreads = newBatch[3];
             batch.totalThreads = batch.hThreads + batch.hwThreads + batch.gThreads + batch.gwThreads;
+            batch.totalThreads = batch.hThreads + batch.hwThreads + batch.gThreads + batch.gwThreads;
         }
-    }
-    else {
+    } else {
         const hThreadsMax = Math.floor(0.95 / hackPct);
-        for (let hThreads = 1; hThreads <= hThreadsMax; hThreads ++) {
+        for (let hThreads = 1; hThreads <= hThreadsMax; hThreads++) {
             const newBatch = calculateBatchForHackThreads(ns, target, threadsAvailable, cpuCores, hackPct, hThreads);
             if (newBatch.length === 0) {
                 break;

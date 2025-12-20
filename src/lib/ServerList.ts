@@ -29,7 +29,6 @@ export class ServerList {
             this.lastUpdate = now;
             this.tools.onTick();
             this.refreshServers();
-
         }
     }
 
