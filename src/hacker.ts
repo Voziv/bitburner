@@ -7,13 +7,18 @@ import { LINE_HEIGHT, TITLE_HEIGHT } from '/lib/ui';
 const sleepMillis = 50;
 
 // Static value because hack.js only ever uses one method. The max ram usage is 1.85gb
-const HACK_SCRIPT_RAM = 1.6 + 0.25;
+let HACK_SCRIPT_RAM = 1.6 + 0.25;
 
 export async function main(ns: NS): Promise<void> {
     ns.disableLog('ALL');
     ns.ui.openTail();
     ns.ui.resizeTail(600, TITLE_HEIGHT + (LINE_HEIGHT * 12));
     ns.print('Hacker is booting up, please wait...');
+    HACK_SCRIPT_RAM = Math.max(
+        1.6 + ns.getFunctionRamCost('hack'),
+        1.6 + ns.getFunctionRamCost('grow'),
+        1.6 + ns.getFunctionRamCost('weaken'),
+    );
 
     const hacker = new Hacker(ns);
 
@@ -184,10 +189,15 @@ export class Hacker {
     }
 
     private countTotalThreadsOnHost(host: string): number {
-        let serverRam = this.ns.getServerMaxRam(host);
+        let reservedRam = 0;
+
+        // Make sure we're always taking hacker.js and servers.js into account.
         if (host === 'home') {
-            serverRam -= (this.ns.getServerMaxRam(host) > 64) ? 32 : 16;
+            reservedRam += this.ns.getScriptRam('hacker.js', host);
+            reservedRam += this.ns.getScriptRam('servers.js', host);
         }
+
+        const serverRam = this.ns.getServerMaxRam(host) - reservedRam;
 
         if (serverRam < HACK_SCRIPT_RAM) {
             return 0;
@@ -197,10 +207,21 @@ export class Hacker {
     }
 
     private countAvailableThreadsOnHost(host: string): number {
-        let serverRam = this.ns.getServerMaxRam(host) - this.ns.getServerUsedRam(host);
+        let maxRam = this.ns.getServerMaxRam(host);
+        let reservedRam = 0;
+
+        // Make sure we're always taking hacker.js and servers.js into account.
         if (host === 'home') {
-            serverRam -= (this.ns.getServerMaxRam(host) > 64) ? 32 : 16;
+            if (!this.ns.scriptRunning('hacker.js', host)) {
+                reservedRam += this.ns.getScriptRam('hacker.js', host);
+            }
+
+            if (!this.ns.scriptRunning('servers.js', host)) {
+                reservedRam += this.ns.getScriptRam('servers.js', host);
+            }
         }
+
+        let serverRam = maxRam - reservedRam - this.ns.getServerUsedRam(host);
 
         if (serverRam < HACK_SCRIPT_RAM) {
             return 0;
@@ -312,9 +333,9 @@ export class Hacker {
     }
 
     private calculateBatchesByHost() {
-        for (const [ host, botNetServer ] of this.serverList.botNet) {
+        for (const [ host, server ] of this.serverList.botNet) {
             const threadsAvailable = this.countTotalThreadsOnHost(host);
-            const batch = calculateOptimalBatch(this.ns, this.target, threadsAvailable, botNetServer.cpuCores);
+            const batch = calculateOptimalBatch(this.ns, this.target, threadsAvailable, server.cpuCores);
             if (batch.totalThreads === 0) {
                 if (this.batchByServer.has(host)) {
                     this.batchByServer.delete(host);
@@ -326,33 +347,53 @@ export class Hacker {
     }
 
     private crudeHack(target: string) {
-        this.ns.tprint('Queuing up a batch. ' + new Date().toString());
+        // this.ns.tprint('Queuing up a batch. ' + new Date().toString());
         let initialDelay = 0;
 
         for (const [ host, botNetServer ] of this.serverList.botNet) {
-            if (initialDelay >= this.ns.getWeakenTime(target) - 500) break;
-
+            if (initialDelay >= this.ns.getWeakenTime(target) - 500) {
+                // this.ns.tprint(`WARN Initial delay (${initialDelay}) is >= ${this.ns.getWeakenTime(target) - 500}. Will not queue any more work.`);
+                break;
+            }
             let threadsAvailable = this.countAvailableThreadsOnHost(host);
-            const batch = this.batchByServer.get(host);
-            if (!batch) continue;
-            while (threadsAvailable > batch.totalThreads) {
-                if (initialDelay >= this.ns.getWeakenTime(target) - 500) break;
+            // this.ns.tprint(`Server: ${host} has ${threadsAvailable} threads available for hacking.`);
 
+            const batch = this.batchByServer.get(host);
+            if (!batch) {
+                this.ns.tprint(`WARN Server: ${host} was unable to queue up a batch.`);
+                continue;
+            }
+            if (threadsAvailable < batch.totalThreads) {
+                this.ns.tprint(`WARN Server: ${host} didn't have enough threads for batch. ${threadsAvailable} < ${batch.totalThreads}`);
+                continue;
+            }
+
+
+            while (threadsAvailable >= batch.totalThreads) {
+                if (initialDelay >= this.ns.getWeakenTime(target) - 500) {
+                    // this.ns.tprint(`WARN Initial delay (${initialDelay}) is >= ${this.ns.getWeakenTime(target) - 500}. Will not queue any more work.`);
+                    break;
+                }
+
+                // this.ns.tprint(`Server: ${host} is executing hack with ${batch.hThreads} threads`);
                 this.ns.exec('hack.js', host, {
                     threads: batch.hThreads,
                     ramOverride: HACK_SCRIPT_RAM,
                 }, 'hack', target, initialDelay, batch.hDelay);
 
+                // this.ns.tprint(`Server: ${host} is executing hack-weaken with ${batch.hwThreads} threads`);
                 this.ns.exec('hack.js', host, {
                     threads: batch.hwThreads,
                     ramOverride: HACK_SCRIPT_RAM,
                 }, 'weaken', target, initialDelay, batch.hwDelay);
 
+                // this.ns.tprint(`Server: ${host} is executing grow with ${batch.gThreads} threads`);
                 this.ns.exec('hack.js', host, {
                     threads: batch.gThreads,
                     ramOverride: HACK_SCRIPT_RAM,
                 }, 'grow', target, initialDelay, batch.gDelay);
 
+                // this.ns.tprint(`Server: ${host} is executing grow-weaken with ${batch.gwThreads} threads`);
                 this.ns.exec('hack.js', host, {
                     threads: batch.gwThreads,
                     ramOverride: HACK_SCRIPT_RAM,
