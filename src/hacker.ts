@@ -350,6 +350,11 @@ export class Hacker {
         // this.ns.tprint('Queuing up a batch. ' + new Date().toString());
         let initialDelay = 0;
 
+        // Use home server first
+        // Use purchased servers second
+        // Finally fallback to the botnet
+
+
         for (const [ host, botNetServer ] of this.serverList.botNet) {
             if (initialDelay >= this.ns.getWeakenTime(target) - 500) {
                 // this.ns.tprint(`WARN Initial delay (${initialDelay}) is >= ${this.ns.getWeakenTime(target) - 500}. Will not queue any more work.`);
@@ -360,7 +365,7 @@ export class Hacker {
 
             const batch = this.batchByServer.get(host);
             if (!batch) {
-                this.ns.tprint(`WARN Server: ${host} was unable to queue up a batch.`);
+                // this.ns.tprint(`WARN Server: ${host} was unable to queue up a batch.`);
                 continue;
             }
             if (threadsAvailable < batch.totalThreads) {
@@ -407,6 +412,12 @@ export class Hacker {
         }
 
         this.timeUntilNextAction = this.now + this.ns.getWeakenTime(target) + initialDelay + 5000;
+    }
+
+    private queueHack(hosts: string[]) {
+        for (const [ host, botNetServer ] of this.serverList.botNet) {
+
+        }
     }
 }
 

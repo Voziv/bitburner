@@ -10,7 +10,10 @@ export async function main(ns: NS): Promise<void> {
 
 
     find(ns, 'run4theh111z', hosts);
-    find(ns, 'w0r1d_d43m0n', hosts);
+    ns.tprint(`-----------------------`);
+    ns.tprint(`Searching for w0r1d_d43m0n. It'll be connected to The-Cave`);
+    ns.tprint(`-----------------------`);
+    find(ns, 'The-Cave', hosts);
 }
 
 function find(ns: NS, target: string, hosts: Hosts) {
