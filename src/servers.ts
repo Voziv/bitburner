@@ -1,6 +1,7 @@
 import { NS } from '@ns';
 import { printStats } from '/lib/format';
 import { LINE_HEIGHT, TITLE_HEIGHT } from '/lib/ui';
+import { Spinner } from '/lib/Spinner';
 
 
 const sleepMillis = 1000;
@@ -8,9 +9,8 @@ const sleepMillis = 1000;
 export async function main(ns: NS): Promise<void> {
     ns.disableLog('ALL');
     ns.ui.openTail();
-    ns.ui.resizeTail(600, TITLE_HEIGHT + (LINE_HEIGHT * 4));
+    ns.ui.resizeTail(300, TITLE_HEIGHT + (LINE_HEIGHT * 2));
     ns.print("ServerManager is booting up, please wait...");
-
 
     const serverManager = new ServerManager(ns);
 
@@ -29,23 +29,18 @@ class ServerManager {
     private upgradeCost = 0;
     private upgradedCount = 0;
 
-    private lastTick: number = Date.now();
-    private tickStart: number = Date.now();
-
-    private readonly uiBox1 = new Map<string, string>();
+    private readonly spinner: Spinner;
+    private readonly stats = new Map<string, string>();
 
 
     constructor(ns: NS) {
         this.ns = ns;
         this.purchasedCount = ns.getPurchasedServers().length;
         this.calculateRam();
+        this.spinner = new Spinner();
     }
 
     public async tick() {
-        this.lastTick = this.tickStart;
-        this.tickStart = Date.now();
-
-
         if (this.purchasedCount < this.ns.getPurchasedServerLimit()) {
             this.purchaseServers();
         } else if (this.upgradeRam <= this.ns.getPurchasedServerMaxRam()) {
@@ -56,29 +51,25 @@ class ServerManager {
     }
 
     private updateLog() {
-        const now = new Date();
-        const tickTime = Date.now() - this.tickStart;
-        const tickDelay = this.tickStart - this.lastTick;
 
-        this.uiBox1.set('Time', `${now.toLocaleTimeString()} - TickTime: ${tickTime}ms - TickDelay: ${tickDelay}ms`);
-        this.uiBox1.set('Servers', `${this.purchasedCount}`);
-        this.uiBox1.set('RAM', `${this.ns.formatRam(this.currentRam, 0)} -> ${this.ns.formatRam(this.upgradeRam, 0)}`);
-        this.uiBox1.set('Upgrade ', `${this.upgradedCount} / ${this.purchasedCount}`);
-        this.uiBox1.set('Upgrade Cost ', `$${this.ns.formatNumber(this.upgradeCost, 0)}`);
+        this.stats.set('Servers', `${this.purchasedCount}`);
+        this.stats.set('RAM', `${this.ns.formatRam(this.currentRam, 0)} -> ${this.ns.formatRam(this.upgradeRam, 0)}`);
+        this.stats.set('Upgrade ', `${this.upgradedCount} / ${this.purchasedCount}`);
+        this.stats.set('Upgrade Cost ', `$${this.ns.formatNumber(this.upgradeCost, 0)}`);
 
 
         this.ns.clearLog();
         if (this.purchasedCount < this.ns.getPurchasedServerLimit()) {
-            this.ns.ui.setTailTitle(`Purchasing ${this.ns.formatRam(this.currentRam, 0)} (${this.purchasedCount} / ${this.ns.getPurchasedServerLimit()})`);
+            this.ns.ui.setTailTitle(`[${this.spinner.next()}]Purchasing ${this.ns.formatRam(this.currentRam, 0)} (${this.purchasedCount} / ${this.ns.getPurchasedServerLimit()})`);
         } else if (this.upgradeRam <= this.ns.getPurchasedServerMaxRam()) {
-            this.ns.ui.setTailTitle(`Upgrading to ${this.ns.formatRam(this.upgradeRam, 0)} (${this.upgradedCount} / ${this.purchasedCount})`);
+            this.ns.ui.setTailTitle(`[${this.spinner.next()}]Upgrading to ${this.ns.formatRam(this.upgradeRam, 0)} (${this.upgradedCount} / ${this.purchasedCount})`);
         } else {
-            this.ns.ui.setTailTitle(`Purchased servers are maxed out`);
+            this.ns.ui.setTailTitle(`[${this.spinner.next()}]Purchased servers are maxed out`);
             this.ns.exit();
         }
 
-        this.ns.ui.resizeTail(600, TITLE_HEIGHT + (LINE_HEIGHT * this.uiBox1.size));
-        printStats(this.ns, this.uiBox1);
+        this.ns.ui.resizeTail(300, TITLE_HEIGHT + (LINE_HEIGHT * this.stats.size));
+        printStats(this.ns, this.stats);
         this.ns.ui.renderTail();
     }
 
