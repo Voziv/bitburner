@@ -9,6 +9,7 @@ export class ServerList {
     private readonly tools: Tools;
     private readonly hosts = new Set<string>();
 
+    public readonly homeServers = new Map<string, Server>();
     public readonly servers = new Map<string, Server>();
     public readonly purchasedServers = new Map<string, Server>();
     public readonly botNet = new Map<string, Server>();
@@ -45,23 +46,19 @@ export class ServerList {
 
         for (const host of this.hosts) {
             const server = this.ns.getServer(host);
-            if (!server.hasAdminRights && this.ns.getServerNumPortsRequired(host) <= this.tools.toolCount) {
+            if (!server.hasAdminRights && server.numOpenPortsRequired! <= this.tools.toolCount) {
                 this.tools.openPorts(host);
                 this.ns.nuke(host);
             }
 
             this.servers.set(host, server);
 
-            if (server.purchasedByPlayer) {
+            if (server.hostname === 'home') {
+                this.homeServers.set(host, server);
+            } else if (server.purchasedByPlayer) {
                 this.purchasedServers.set(host, server);
-            } else if (this.purchasedServers.has(host)) {
-                this.purchasedServers.delete(host);
-            }
-
-            if (server.hasAdminRights && server.maxRam >= 2) {
+            } else if (server.hasAdminRights && server.maxRam >= 8) {
                 this.botNet.set(host, server);
-            } else if (this.botNet.has(host)) {
-                this.botNet.delete(host);
             }
         }
     }

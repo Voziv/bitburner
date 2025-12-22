@@ -1,4 +1,4 @@
-import { NS } from '@ns';
+import { NS, Server } from '@ns';
 import { ServerList } from '/lib/ServerList';
 import { printStats } from '/lib/format';
 import { LINE_HEIGHT, TITLE_HEIGHT } from '/lib/ui';
@@ -80,23 +80,21 @@ export class Hacker {
             this.batch = calculateOptimalBatch(this.ns, this.target, this.totalThreads);
             this.calculateBatchesByHost();
 
-            for (const [ host, server ] of this.serverList.botNet) {
+            for (const [ host, _ ] of this.serverList.purchasedServers) {
                 if (host !== 'home') {
                     this.ns.scp('hack.js', host, 'home');
                 }
             }
+
+            for (const [ host, _ ] of this.serverList.botNet) {
+                if (host !== 'home') {
+                    this.ns.scp('hack.js', host, 'home');
+                }
+            }
+
         }
 
         this.availableThreads = this.countAvailableThreads();
-
-        const newTarget = this.pickBestTarget();
-        if (newTarget !== this.target) {
-            this.ns.print(`New target selected: ${newTarget}`);
-            this.target = newTarget;
-            this.batch = calculateOptimalBatch(this.ns, this.target, this.totalThreads);
-            this.calculateBatchesByHost();
-        }
-
 
         // Sanity check
         let sanity = true;
@@ -115,6 +113,14 @@ export class Hacker {
             this.ns.tprint(`ERROR: We were in ${this.hackState.toString()} state.`);
             await this.ns.sleep(5000);
         } else if (this.now > this.timeUntilNextAction) {
+            const newTarget = this.pickBestTarget();
+            if (newTarget !== this.target) {
+                this.ns.print(`New target selected: ${newTarget}`);
+                this.target = newTarget;
+                this.batch = calculateOptimalBatch(this.ns, this.target, this.totalThreads);
+                this.calculateBatchesByHost();
+            }
+
             if (this.ns.getServerSecurityLevel(this.target) > this.ns.getServerMinSecurityLevel(this.target)) {
                 this.hackState = HackState.Weakening;
             } else if (this.ns.getServerMoneyAvailable(this.target) < this.ns.getServerMaxMoney(this.target)) {
@@ -195,6 +201,7 @@ export class Hacker {
         if (host === 'home') {
             reservedRam += this.ns.getScriptRam('hacker.js', host);
             reservedRam += this.ns.getScriptRam('servers.js', host);
+            reservedRam += this.ns.getScriptRam('train.js', host);
         }
 
         const serverRam = this.ns.getServerMaxRam(host) - reservedRam;
@@ -218,6 +225,10 @@ export class Hacker {
 
             if (!this.ns.scriptRunning('servers.js', host)) {
                 reservedRam += this.ns.getScriptRam('servers.js', host);
+            }
+
+            if (!this.ns.scriptRunning('train.js', host)) {
+                reservedRam += this.ns.getScriptRam('train.js', host);
             }
         }
 
@@ -344,20 +355,52 @@ export class Hacker {
             }
             this.batchByServer.set(host, batch);
         }
+
+        for (const [ host, server ] of this.serverList.homeServers) {
+            const threadsAvailable = this.countTotalThreadsOnHost(host);
+            const batch = calculateOptimalBatch(this.ns, this.target, threadsAvailable, server.cpuCores);
+            if (batch.totalThreads === 0) {
+                if (this.batchByServer.has(host)) {
+                    this.batchByServer.delete(host);
+                }
+                continue;
+            }
+            this.batchByServer.set(host, batch);
+        }
+
+        for (const [ host, server ] of this.serverList.purchasedServers) {
+            const threadsAvailable = this.countTotalThreadsOnHost(host);
+            const batch = calculateOptimalBatch(this.ns, this.target, threadsAvailable, server.cpuCores);
+            if (batch.totalThreads === 0) {
+                if (this.batchByServer.has(host)) {
+                    this.batchByServer.delete(host);
+                }
+                continue;
+            }
+            this.batchByServer.set(host, batch);
+        }
     }
 
     private crudeHack(target: string) {
         // this.ns.tprint('Queuing up a batch. ' + new Date().toString());
+        const delayLimit = this.ns.getWeakenTime(target) - 500;
         let initialDelay = 0;
 
-        // Use home server first
-        // Use purchased servers second
-        // Finally fallback to the botnet
+        initialDelay = this.queueHack(this.serverList.homeServers, initialDelay, delayLimit);
+        initialDelay = this.queueHack(this.serverList.purchasedServers, initialDelay, delayLimit);
+        initialDelay = this.queueHack(this.serverList.botNet, initialDelay, delayLimit);
 
+        this.timeUntilNextAction = this.now + this.ns.getWeakenTime(target) + initialDelay + 5000;
+    }
 
-        for (const [ host, botNetServer ] of this.serverList.botNet) {
-            if (initialDelay >= this.ns.getWeakenTime(target) - 500) {
-                // this.ns.tprint(`WARN Initial delay (${initialDelay}) is >= ${this.ns.getWeakenTime(target) - 500}. Will not queue any more work.`);
+    private queueHack(hosts: Map<string, Server>, initialDelay: number, delayLimit: number): number {
+        if (initialDelay >= delayLimit) {
+            return initialDelay;
+        }
+
+        for (const [host, _] of hosts) {
+            if (initialDelay >= delayLimit) {
+                // this.ns.tprint(`WARN Initial delay (${initialDelay}) is >= ${delayLimit}. Will not queue any more work.`);
                 break;
             }
             let threadsAvailable = this.countAvailableThreadsOnHost(host);
@@ -375,49 +418,43 @@ export class Hacker {
 
 
             while (threadsAvailable >= batch.totalThreads) {
-                if (initialDelay >= this.ns.getWeakenTime(target) - 500) {
-                    // this.ns.tprint(`WARN Initial delay (${initialDelay}) is >= ${this.ns.getWeakenTime(target) - 500}. Will not queue any more work.`);
-                    break;
-                }
-
                 // this.ns.tprint(`Server: ${host} is executing hack with ${batch.hThreads} threads`);
                 this.ns.exec('hack.js', host, {
                     threads: batch.hThreads,
                     ramOverride: HACK_SCRIPT_RAM,
-                }, 'hack', target, initialDelay, batch.hDelay);
+                }, 'hack', this.target, initialDelay, batch.hDelay);
 
                 // this.ns.tprint(`Server: ${host} is executing hack-weaken with ${batch.hwThreads} threads`);
                 this.ns.exec('hack.js', host, {
                     threads: batch.hwThreads,
                     ramOverride: HACK_SCRIPT_RAM,
-                }, 'weaken', target, initialDelay, batch.hwDelay);
+                }, 'weaken', this.target, initialDelay, batch.hwDelay);
 
                 // this.ns.tprint(`Server: ${host} is executing grow with ${batch.gThreads} threads`);
                 this.ns.exec('hack.js', host, {
                     threads: batch.gThreads,
                     ramOverride: HACK_SCRIPT_RAM,
-                }, 'grow', target, initialDelay, batch.gDelay);
+                }, 'grow', this.target, initialDelay, batch.gDelay);
 
                 // this.ns.tprint(`Server: ${host} is executing grow-weaken with ${batch.gwThreads} threads`);
                 this.ns.exec('hack.js', host, {
                     threads: batch.gwThreads,
                     ramOverride: HACK_SCRIPT_RAM,
-                }, 'weaken', target, initialDelay, batch.gwDelay);
+                }, 'weaken', this.target, initialDelay, batch.gwDelay);
 
 
-                this.batches.push(Date.now() + this.ns.getWeakenTime(target) + initialDelay);
+                this.batches.push(Date.now() + this.ns.getWeakenTime(this.target) + initialDelay);
                 threadsAvailable -= batch.totalThreads;
                 initialDelay += 1000;
+
+                if (initialDelay >= delayLimit) {
+                    // this.ns.tprint(`WARN Initial delay (${initialDelay}) is >= ${delayLimit}. Will not queue any more work.`);
+                    break;
+                }
             }
         }
 
-        this.timeUntilNextAction = this.now + this.ns.getWeakenTime(target) + initialDelay + 5000;
-    }
-
-    private queueHack(hosts: string[]) {
-        for (const [ host, botNetServer ] of this.serverList.botNet) {
-
-        }
+        return initialDelay;
     }
 }
 

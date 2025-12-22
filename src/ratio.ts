@@ -26,7 +26,7 @@ export async function main(ns: NS): Promise<void> {
 
     data.set('Host', server.hostname);
     data.set('Total Threads', threadsAvailable);
-    data.set('Batch H / G / W / Total', `${batch.hackThreads} / ${batch.growThreads} / ${batch.weakenThreads} / ${batch.totalThreads}`);
+    data.set('Batch H / HW / G / GW / Total', `${batch.hThreads} / ${batch.hwThreads} / ${batch.gThreads} / ${batch.gwThreads} / ${batch.totalThreads}`);
     data.set('Max Batch Instances', `${Math.floor(threadsAvailable / batch.totalThreads)}`);
     tPrintStats(ns, data);
 }
