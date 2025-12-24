@@ -13,8 +13,7 @@ const ACTIONS = [
 export async function main(ns: NS): Promise<void> {
     const action = ns.args[0].toString();
     const target = ns.args[1].toString();
-    const initialMsec = ns.args[2] as number ?? 0;
-    const additionalMsec = ns.args[3] as number ?? 0;
+    const additionalMsec = ns.args[2] as number ?? 0;
 
     if (!action || !ACTIONS.includes(action)) {
         ns.print(`Action must be one of [${ACTIONS.join(',')}]`);
@@ -26,12 +25,10 @@ export async function main(ns: NS): Promise<void> {
         ns.exit();
     }
 
-    if (initialMsec > 0) await ns.sleep(initialMsec);
-
     const opts: BasicHGWOptions = {};
     if (additionalMsec > 0) opts.additionalMsec = additionalMsec;
 
-
+    // ns.write(`hack.txt`, `Starting with args: ${JSON.stringify(ns.args)}\n`, 'a');
     switch (action) {
         case 'grow': {
             await ns.grow(target, opts);
@@ -57,4 +54,5 @@ export async function main(ns: NS): Promise<void> {
             }
         }
     }
+    // ns.write(`hack.txt`, `Finished with args: ${JSON.stringify(ns.args)}\n`, 'a');
 }
