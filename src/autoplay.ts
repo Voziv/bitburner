@@ -40,11 +40,14 @@ export async function main(ns: NS): Promise<void> {
                 stats.set('TOR', `All programs purchased.`);
             }
 
+
         }
 
         updateLog(ns, stats);
         await ns.sleep(sleepMillis);
     }
+
+    ns.enums.FactionName
 }
 
 function updateLog(ns: NS, stats: Map<string, any>) {

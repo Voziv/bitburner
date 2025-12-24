@@ -22,10 +22,10 @@
 //
 //         if (host !== 'home') {
 //             // TODO: Check hashes and only copy when different?
-//             this.ns.scp('hack.js', host, 'home');
+//             this.ns.scp('hack.ts', host, 'home');
 //         }
 //
-//         this.ns.scriptKill('hack.js', host);
+//         this.ns.scriptKill('hack.ts', host);
 //
 //         /**
 //          * WEAKEN
@@ -34,7 +34,7 @@
 //             const delay = Math.floor(Math.random() * 400) + 100;
 //             if (totalWeakenThreads < targetWeakenThreads) {
 //                 const threads = Math.min(Math.min(threadsAvailable, targetWeakenThreads - totalWeakenThreads), MAX_THREADS);
-//                 this.ns.exec('hack.js', host, {
+//                 this.ns.exec('hack.ts', host, {
 //                     threads,
 //                     ramOverride: HACK_SCRIPT_RAM,
 //                 }, 'weaken-loop', target, delay);
@@ -52,7 +52,7 @@
 //             const delay = Math.floor(Math.random() * 400) + 100;
 //             if (totalGrowThreads < targetGrowThreads) {
 //                 const threads = Math.min(Math.min(threadsAvailable, targetGrowThreads - totalGrowThreads), MAX_THREADS);
-//                 this.ns.exec('hack.js', host, {
+//                 this.ns.exec('hack.ts', host, {
 //                     threads,
 //                     ramOverride: HACK_SCRIPT_RAM,
 //                 }, 'grow-loop', target, delay);
@@ -70,7 +70,7 @@
 //             const delay = Math.floor(Math.random() * 400) + 100;
 //             if (totalHackThreads < targetHackThreads) {
 //                 const threads = Math.min(Math.min(threadsAvailable, targetHackThreads - totalHackThreads), MAX_THREADS);
-//                 this.ns.exec('hack.js', host, {
+//                 this.ns.exec('hack.ts', host, {
 //                     threads,
 //                     ramOverride: HACK_SCRIPT_RAM,
 //                 }, 'hack-loop', target, delay);

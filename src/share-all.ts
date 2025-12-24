@@ -43,14 +43,14 @@ class ShareManager {
     constructor(ns: NS) {
         this.ns = ns;
         this.serverList = new ServerList(ns);
-        this.shareScriptRam = this.ns.getScriptRam('share.js', 'home');
+        this.shareScriptRam = this.ns.getScriptRam('share.ts', 'home');
     }
 
     public async tick() {
         this.lastTick = this.tickStart;
         this.tickStart = Date.now();
 
-        this.shareScriptRam = this.ns.getScriptRam('share.js', 'home');
+        this.shareScriptRam = this.ns.getScriptRam('share.ts', 'home');
         await this.serverList.onTick();
 
         const newTotalThreads = this.countThreads();
@@ -95,15 +95,19 @@ class ShareManager {
         for (const [ host, server ] of this.serverList.servers) {
             let threadsAvailable = this.maxHostThreads(host);
             if (threadsAvailable < 1) continue;
+            if (!Number.isFinite(threadsAvailable)) {
+                this.ns.print(`Host: ${host} ${threadsAvailable} is infinite`);
+                this.ns.exit();
+            }
 
             if (host !== 'home') {
                 // TODO: Check hashes and only copy when different?
-                this.ns.scp('share.js', host, 'home');
+                this.ns.scp('share.ts', host, 'home');
             }
 
-            this.ns.scriptKill('share.js', host);
+            this.ns.scriptKill('share.ts', host);
 
-            this.ns.exec('share.js', host, threadsAvailable);
+            this.ns.exec('share.ts', host, threadsAvailable);
             this.sharedRam += threadsAvailable * this.shareScriptRam;
             this.sharedThreads += threadsAvailable;
         }
@@ -112,10 +116,6 @@ class ShareManager {
     private countThreads(): number {
         let threads = 0;
         for (const [ host, server ] of this.serverList.servers) {
-            let serverRam = this.ns.getServerMaxRam(host);
-            if (host === 'home') {
-                serverRam -= 64;
-            }
             threads += this.maxHostThreads(host);
         }
 
@@ -123,10 +123,17 @@ class ShareManager {
     }
 
     private maxHostThreads(host: string): number {
-        let serverRam = this.ns.getServerMaxRam(host);
+        let reservedRam = 0;
+
         if (host === 'home') {
-            serverRam -= 64;
+            if (this.ns.getServerMaxRam(host) > 512) {
+                reservedRam += 64;
+            }
+            reservedRam += this.ns.getScriptRam('hacker.ts', host);
+            reservedRam += this.ns.getScriptRam('servers.ts', host);
+            reservedRam += this.ns.getScriptRam('train.ts', host);
         }
+        let serverRam = this.ns.getServerMaxRam(host) - reservedRam;
 
         if (serverRam < this.shareScriptRam) {
             return 0;

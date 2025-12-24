@@ -34,10 +34,10 @@ export async function main(ns: NS): Promise<void> {
             }
 
             for (const botnetServer of botnetServers) {
-                ns.scp('hack.js', server.hostname, 'home');
+                ns.scp('hack.ts', server.hostname, 'home');
                 const threads = Math.floor((ns.getServerMaxRam(botnetServer.hostname) - ns.getServerUsedRam(botnetServer.hostname) - ((botnetServer.hostname === 'home') ? 16 : 0)) / 1.85);
                 if (threads === 0) continue;
-                ns.exec('hack.js', botnetServer.hostname, { threads, ramOverride: 1.85 }, 'weaken', server.hostname);
+                ns.exec('hack.ts', botnetServer.hostname, { threads, ramOverride: 1.85 }, 'weaken', server.hostname);
             }
 
             await ns.sleep(weakenTime + 2000);

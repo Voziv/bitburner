@@ -6,7 +6,7 @@ import { LINE_HEIGHT, TITLE_HEIGHT } from '/lib/ui';
 
 const sleepMillis = 50;
 
-// Static value because hack.js only ever uses one method. The max ram usage is 1.85gb
+// Static value because hack.ts only ever uses one method. The max ram usage is 1.85gb
 let HACK_SCRIPT_RAM = 1.6 + 0.25;
 
 export async function main(ns: NS): Promise<void> {
@@ -79,7 +79,7 @@ export class Hacker {
 
             for (const [ host, _ ] of this.serverList.servers) {
                 if (host !== 'home') {
-                    this.ns.scp('hack.js', host, 'home');
+                    this.ns.scp('hack.ts', host, 'home');
                 }
             }
         }
@@ -90,7 +90,7 @@ export class Hacker {
         let sanity = true;
         if (this.now > this.timeUntilNextAction) {
             for (const [ host, botNetServer ] of this.serverList.botNet) {
-                if (this.ns.scriptRunning('hack.js', host)) {
+                if (this.ns.scriptRunning('hack.ts', host)) {
                     sanity = false;
                     break;
                 }
@@ -198,14 +198,14 @@ export class Hacker {
     private countTotalThreadsOnHost(host: string): number {
         let reservedRam = 0;
 
-        // Make sure we're always taking hacker.js and servers.js into account.
+        // Make sure we're always taking hacker.ts and servers.ts into account.
         if (host === 'home') {
             if (this.ns.getServerMaxRam(host) > 512) {
                 reservedRam += 64;
             }
-            reservedRam += this.ns.getScriptRam('hacker.js', host);
-            reservedRam += this.ns.getScriptRam('servers.js', host);
-            reservedRam += this.ns.getScriptRam('train.js', host);
+            reservedRam += this.ns.getScriptRam('hacker.ts', host);
+            reservedRam += this.ns.getScriptRam('servers.ts', host);
+            reservedRam += this.ns.getScriptRam('train.ts', host);
         }
 
         const serverRam = this.ns.getServerMaxRam(host) - reservedRam;
@@ -221,21 +221,21 @@ export class Hacker {
         let maxRam = this.ns.getServerMaxRam(host);
         let reservedRam = 0;
 
-        // Make sure we're always taking hacker.js and servers.js into account.
+        // Make sure we're always taking hacker.ts and servers.ts into account.
         if (host === 'home') {
             if (this.ns.getServerMaxRam(host) > 512) {
                 reservedRam += 64;
             }
-            if (!this.ns.scriptRunning('hacker.js', host)) {
-                reservedRam += this.ns.getScriptRam('hacker.js', host);
+            if (!this.ns.scriptRunning('hacker.ts', host)) {
+                reservedRam += this.ns.getScriptRam('hacker.ts', host);
             }
 
-            if (!this.ns.scriptRunning('servers.js', host)) {
-                reservedRam += this.ns.getScriptRam('servers.js', host);
+            if (!this.ns.scriptRunning('servers.ts', host)) {
+                reservedRam += this.ns.getScriptRam('servers.ts', host);
             }
 
-            if (!this.ns.scriptRunning('train.js', host)) {
-                reservedRam += this.ns.getScriptRam('train.js', host);
+            if (!this.ns.scriptRunning('train.ts', host)) {
+                reservedRam += this.ns.getScriptRam('train.ts', host);
             }
         }
 
@@ -292,12 +292,12 @@ export class Hacker {
             const serverThreads = this.countAvailableThreadsOnHost(host);
             if (serverThreads === 0) continue;
 
-            this.ns.scp('hack.js', host, 'home');
+            this.ns.scp('hack.ts', host, 'home');
             const weakenAmount = this.ns.weakenAnalyze(1, server.cpuCores);
             const threadsNeededToWeaken = Math.ceil((securityLevel - securityLevelTarget) / weakenAmount);
             const threads = Math.min(this.countAvailableThreadsOnHost(host), threadsNeededToWeaken);
             if (threads === 0) continue;
-            this.ns.exec('hack.js', host, {
+            this.ns.exec('hack.ts', host, {
                 threads,
                 ramOverride: HACK_SCRIPT_RAM,
             }, 'weaken', target);
@@ -313,12 +313,12 @@ export class Hacker {
             const serverThreads = this.countAvailableThreadsOnHost(host);
             if (serverThreads === 0) continue;
 
-            this.ns.scp('hack.js', host, 'home');
+            this.ns.scp('hack.ts', host, 'home');
             const weakenAmount = this.ns.weakenAnalyze(1, server.cpuCores);
             const threadsNeededToWeaken = Math.ceil((securityLevel - securityLevelTarget) / weakenAmount);
             const threads = Math.min(this.countAvailableThreadsOnHost(host), threadsNeededToWeaken);
             if (threads === 0) continue;
-            this.ns.exec('hack.js', host, {
+            this.ns.exec('hack.ts', host, {
                 threads,
                 ramOverride: HACK_SCRIPT_RAM,
             }, 'weaken', target);
@@ -334,12 +334,12 @@ export class Hacker {
             const serverThreads = this.countAvailableThreadsOnHost(host);
             if (serverThreads === 0) continue;
 
-            this.ns.scp('hack.js', host, 'home');
+            this.ns.scp('hack.ts', host, 'home');
             const weakenAmount = this.ns.weakenAnalyze(1, server.cpuCores);
             const threadsNeededToWeaken = Math.ceil((securityLevel - securityLevelTarget) / weakenAmount);
             const threads = Math.min(this.countAvailableThreadsOnHost(host), threadsNeededToWeaken);
             if (threads === 0) continue;
-            this.ns.exec('hack.js', host, {
+            this.ns.exec('hack.ts', host, {
                 threads,
                 ramOverride: HACK_SCRIPT_RAM,
             }, 'weaken', target);
@@ -370,7 +370,7 @@ export class Hacker {
 
             if (serverThreads > 0 && gThreads > 0) {
                 let threads = Math.min(serverThreads, gThreads);
-                this.ns.exec('hack.js', host, {
+                this.ns.exec('hack.ts', host, {
                     threads,
                     ramOverride: HACK_SCRIPT_RAM,
                 }, 'grow', target);
@@ -380,7 +380,7 @@ export class Hacker {
 
             if (serverThreads > 0 && gwThreads > 0) {
                 let threads = Math.min(serverThreads, gwThreads);
-                this.ns.exec('hack.js', host, {
+                this.ns.exec('hack.ts', host, {
                     threads,
                     ramOverride: HACK_SCRIPT_RAM,
                 }, 'weaken', target);
@@ -398,7 +398,7 @@ export class Hacker {
 
             if (serverThreads > 0 && gThreads > 0) {
                 let threads = Math.min(serverThreads, gThreads);
-                this.ns.exec('hack.js', host, {
+                this.ns.exec('hack.ts', host, {
                     threads,
                     ramOverride: HACK_SCRIPT_RAM,
                 }, 'grow', target);
@@ -408,7 +408,7 @@ export class Hacker {
 
             if (serverThreads > 0 && gwThreads > 0) {
                 let threads = Math.min(serverThreads, gwThreads);
-                this.ns.exec('hack.js', host, {
+                this.ns.exec('hack.ts', host, {
                     threads,
                     ramOverride: HACK_SCRIPT_RAM,
                 }, 'weaken', target);
@@ -426,7 +426,7 @@ export class Hacker {
 
             if (serverThreads > 0 && gThreads > 0) {
                 let threads = Math.min(serverThreads, gThreads);
-                this.ns.exec('hack.js', host, {
+                this.ns.exec('hack.ts', host, {
                     threads,
                     ramOverride: HACK_SCRIPT_RAM,
                 }, 'grow', target);
@@ -436,7 +436,7 @@ export class Hacker {
 
             if (serverThreads > 0 && gwThreads > 0) {
                 let threads = Math.min(serverThreads, gwThreads);
-                this.ns.exec('hack.js', host, {
+                this.ns.exec('hack.ts', host, {
                     threads,
                     ramOverride: HACK_SCRIPT_RAM,
                 }, 'weaken', target);
@@ -514,6 +514,10 @@ export class Hacker {
                 // this.ns.tprint(`WARN Initial delay (${initialDelay}) is >= ${delayLimit}. Will not queue any more work.`);
                 break;
             }
+            if (this.batches.length > 350_000) {
+                break;
+            }
+
             let threadsAvailable = this.countAvailableThreadsOnHost(host);
             // this.ns.tprint(`Server: ${host} has ${threadsAvailable} threads available for hacking.`);
 
@@ -536,22 +540,22 @@ export class Hacker {
                 // this.ns.tprint(`Server: ${host} is executing grow-weaken with ${batch.gwThreads} threads`);
 
                 this.batchNumber++;
-                this.ns.exec('hack.js', host, {
+                this.ns.exec('hack.ts', host, {
                     threads: batch.hThreads,
                     ramOverride: HACK_SCRIPT_RAM,
                 }, 'hack', this.target, initialDelay + batch.hDelay, `batch-${this.batchNumber}`);
 
-                this.ns.exec('hack.js', host, {
+                this.ns.exec('hack.ts', host, {
                     threads: batch.hwThreads,
                     ramOverride: HACK_SCRIPT_RAM,
                 }, 'weaken', this.target, initialDelay + batch.hwDelay, `batch-${this.batchNumber}`);
 
-                this.ns.exec('hack.js', host, {
+                this.ns.exec('hack.ts', host, {
                     threads: batch.gThreads,
                     ramOverride: HACK_SCRIPT_RAM,
                 }, 'grow', this.target, initialDelay + batch.gDelay, `batch-${this.batchNumber}`);
 
-                this.ns.exec('hack.js', host, {
+                this.ns.exec('hack.ts', host, {
                     threads: batch.gwThreads,
                     ramOverride: HACK_SCRIPT_RAM,
                 }, 'weaken', this.target, initialDelay + batch.gwDelay, `batch-${this.batchNumber}`);

@@ -1,18 +1,25 @@
 import { NS } from '@ns';
 import { countTools, useTools } from '/lib/tools';
+import { LINE_HEIGHT, TITLE_HEIGHT } from '/lib/ui';
 
+
+const WINDOW_WIDTH = 600;
 
 export async function main(ns: NS): Promise<void> {
+    ns.disableLog('ALL');
+    ns.ui.openTail();
+    ns.ui.resizeTail(WINDOW_WIDTH, TITLE_HEIGHT + (LINE_HEIGHT * 12));
+    ns.clearLog();
+
     const hosts: Hosts = {};
     scan(ns, 'home', hosts, 1);
 
     await backdoor(ns, 'CSEC', hosts);
+    await backdoor(ns, 'avmnite-02h', hosts);
     await backdoor(ns, 'I.I.I.I', hosts);
     await backdoor(ns, 'run4theh111z', hosts);
 
-    ns.tprint(`-----------------------`);
-    ns.tprint(`Searching for w0r1d_d43m0n. It'll be connected to The-Cave`);
-    ns.tprint(`-----------------------`);
+
     await backdoor(ns, 'The-Cave', hosts);
     await backdoor(ns, 'w0r1d_d43m0n', hosts);
 
@@ -39,12 +46,25 @@ function canHack(ns: NS, host: string): boolean {
     return true;
 }
 
-async function backdoor(ns: NS, target: string, hosts: Hosts): string[] {
+async function backdoor(ns: NS, target: string, hosts: Hosts) {
     let server = hosts[target];
     if (!server) {
-        ns.tprint(`ERROR: Could not find ${target}`);
+        ns.print(`ERROR: ${target} does not exist`);
         return;
     }
+
+    if (ns.getServer(target).backdoorInstalled) {
+        ns.print(`${target} already has a backdoor.`);
+        return;
+    }
+
+    if (!canHack(ns, target)) {
+        ns.print(`Requirements for installing a backdoor on ${target} not met yet.`);
+        return;
+    }
+
+
+    ns.print(`Installing a backdoor to ${target}.`);
 
     const paths: string[] = [];
 
@@ -62,17 +82,19 @@ async function backdoor(ns: NS, target: string, hosts: Hosts): string[] {
     }
 
     // Always start from home.
-    ns.singularity.connect('home')
+    ns.singularity.connect('home');
 
     for (const path of paths.reverse()) {
-        const currentHost = ns.singularity.getCurrentServer()
+        const currentHost = ns.singularity.getCurrentServer();
         if (!ns.singularity.connect(path)) {
-            ns.tprint(`Failed to connect to ${path} from ${currentHost}`);
+            ns.print(`Failed to connect to ${path} from ${currentHost}`);
         }
-        await ns.singularity.installBackdoor();
+        if (currentHost === target) {
+            await ns.singularity.installBackdoor();
+        }
     }
 
-    return paths.reverse();
+    ns.singularity.connect('home');
 }
 
 function scan(ns: NS, host: string, hosts: Hosts, depth: number) {
