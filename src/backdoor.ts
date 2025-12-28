@@ -7,22 +7,25 @@ const WINDOW_WIDTH = 600;
 
 export async function main(ns: NS): Promise<void> {
     ns.disableLog('ALL');
-    ns.ui.openTail();
-    ns.ui.resizeTail(WINDOW_WIDTH, TITLE_HEIGHT + (LINE_HEIGHT * 12));
+    // ns.ui.openTail();
+    // ns.ui.resizeTail(WINDOW_WIDTH, TITLE_HEIGHT + (LINE_HEIGHT * 12));
     ns.clearLog();
 
     const hosts: Hosts = {};
     scan(ns, 'home', hosts, 1);
 
     await backdoor(ns, 'CSEC', hosts);
+    await ns.sleep(500);
     await backdoor(ns, 'avmnite-02h', hosts);
+    await ns.sleep(500);
     await backdoor(ns, 'I.I.I.I', hosts);
+    await ns.sleep(500);
     await backdoor(ns, 'run4theh111z', hosts);
-
-
+    await ns.sleep(500);
     await backdoor(ns, 'The-Cave', hosts);
-    await backdoor(ns, 'w0r1d_d43m0n', hosts);
+    await ns.sleep(2000);
 
+    // ns.ui.closeTail();
 }
 
 function canHack(ns: NS, host: string): boolean {
@@ -32,10 +35,12 @@ function canHack(ns: NS, host: string): boolean {
     const server = ns.getServer(host);
     const player = ns.getPlayer();
     if (server.requiredHackingSkill > player.skills.hacking) {
+        ns.print(`${host} requires hacking skill of ${server.requiredHackingSkill}, you have ${player.skills.hacking}.`);
         return false;
     }
-
-    if (server.numOpenPortsRequired > countTools(ns)) {
+    const toolCount = countTools(ns);
+    if (server.numOpenPortsRequired > toolCount) {
+        ns.print(`${host} requires ${server.numOpenPortsRequired} ports open. You can only open ${toolCount}.`);
         return false;
     }
 
@@ -89,7 +94,7 @@ async function backdoor(ns: NS, target: string, hosts: Hosts) {
         if (!ns.singularity.connect(path)) {
             ns.print(`Failed to connect to ${path} from ${currentHost}`);
         }
-        if (currentHost === target) {
+        if (path === target) {
             await ns.singularity.installBackdoor();
         }
     }

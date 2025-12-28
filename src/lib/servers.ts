@@ -1,48 +1,57 @@
-import { NS, Server } from '@ns';
+import { NS } from '@ns';
 
 
-export type Host = {
-    name: string;
-    hackLevel: number;
-    currentMoney: number;
-    maxMoney: number;
-    maxRam: number;
-    portsRequired: number;
-    depth: number;
-    parent?: string;
-    children: string[];
-}
+export function getRam(ns: NS, host: string): [ availableRam: number, maxRam: number ] {
+    const HOME_SCRIPTS = [ 'hacker.ts', 'servers.ts', 'train.ts', 'exp.ts' ];
 
-export type Hosts = {
-    [name: string]: Host;
-}
+    let reservedMaxRam = 0;
+    let reservedAvailableRam = 0;
 
-export async function scan(ns: NS, host: string, hosts: Hosts, depth: number) {
-    // Ensure we provide the ability for other scripts to run
-    await ns.sleep(1);
-
-    if (depth > 25) {
-        return;
-    }
-
-    const results = ns.scan(host);
-
-    for (const result of results) {
-        if (result == 'home' || Object.hasOwn(hosts, result)) {
-            continue;
+    // Make sure we're always taking hacker.ts and servers.ts into account.
+    if (host === 'home') {
+        if (ns.getServerMaxRam(host) > 512) {
+            reservedMaxRam += 64;
+            reservedAvailableRam += 64;
         }
 
-        hosts[result] = {
-            name: result,
-            currentMoney: ns.getServerMoneyAvailable(result),
-            maxMoney: ns.getServerMaxMoney(result),
-            maxRam: ns.getServerMaxRam(result),
-            portsRequired: ns.getServerNumPortsRequired(result),
-            hackLevel: ns.getServerRequiredHackingLevel(result),
-            parent: host,
-            children: results.filter((value) => value === host),
-            depth,
-        };
-        await scan(ns, result, hosts, depth + 1);
+        for (const script of HOME_SCRIPTS) {
+            reservedMaxRam += ns.getScriptRam(script, host);
+            if (!ns.scriptRunning(script, host)) {
+                reservedAvailableRam += ns.getScriptRam(script, host);
+            }
+        }
     }
+
+    const maxRam = ns.getServerMaxRam(host) - reservedMaxRam;
+    const availableRam = ns.getServerMaxRam(host) - ns.getServerUsedRam(host) - reservedAvailableRam;
+
+    return [ availableRam, maxRam ];
+}
+
+export function getMaxThreads(ns: NS, host: string, scriptRam: number): number {
+    const [ _, maxRam ] = getRam(ns, host);
+    if (maxRam < scriptRam) {
+        return 0;
+    }
+
+    return Math.floor(maxRam / scriptRam);
+}
+
+export function getAvailableThreads(ns: NS, host: string, scriptRam: number): number {
+    const [ availableRam, _ ] = getRam(ns, host);
+    if (availableRam < scriptRam) {
+        return 0;
+    }
+
+    return Math.floor(availableRam / scriptRam);
+}
+
+export function getUsedThreads(ns: NS, host: string, scriptRam: number): number {
+    const [ availableRam, maxRam ] = getRam(ns, host);
+    const usedRam = maxRam - availableRam;
+    if (usedRam < scriptRam) {
+        return 0;
+    }
+
+    return Math.floor(usedRam / scriptRam);
 }

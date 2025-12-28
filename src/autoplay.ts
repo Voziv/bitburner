@@ -6,7 +6,6 @@ import { Spinner } from '/lib/Spinner';
 
 const stats = new Map<string, any>();
 
-const sleepMillis = 500;
 const WINDOW_WIDTH = 400;
 
 const spinner = new Spinner();
@@ -17,44 +16,51 @@ export async function main(ns: NS): Promise<void> {
     ns.ui.resizeTail(WINDOW_WIDTH, TITLE_HEIGHT + (LINE_HEIGHT * 1));
     ns.print('Singularity is booting up');
 
-    stats.set('TOR', 'Not purchased');
-    while (true) {
-        if (!ns.hasTorRouter()) {
-            if (ns.getServerMoneyAvailable('home') > 200_000) {
-                ns.singularity.purchaseTor();
-                stats.set('TOR', 'Purchased');
-            }
-        } else if (ns.singularity.getDarkwebPrograms().length > 0) {
-            let unPurchasedPrograms = 0;
-            for (const darkwebProgram of ns.singularity.getDarkwebPrograms()) {
-                if (ns.singularity.getDarkwebProgramCost(darkwebProgram) > 0) {
-                    unPurchasedPrograms++;
-                    if (ns.getServerMoneyAvailable('home') > ns.singularity.getDarkwebProgramCost(darkwebProgram)) {
-                        ns.singularity.purchaseProgram(darkwebProgram);
-                    }
-                }
-            }
-            if (unPurchasedPrograms > 0) {
-                stats.set('TOR', `${ns.singularity.getDarkwebPrograms().length} programs left to purchase.`);
-            } else {
-                stats.set('TOR', `All programs purchased.`);
-            }
+    const intervalId = setInterval(updateLog(ns), 250);
 
-
+    ns.atExit(() => {
+        if (intervalId) {
+            clearInterval(intervalId);
         }
+    });
 
-        updateLog(ns, stats);
-        await ns.sleep(sleepMillis);
+    // Initial Loop first
+    await loop(ns);
+
+    // TODO: Startup other scripts like the hacker script.
+
+
+    await ns.asleep(60000);
+    while (true) {
+        await loop(ns);
+
+        stats.set('Action', `Sleeping for 60s`);
+        await ns.asleep(60000);
     }
-
-    ns.enums.FactionName
 }
 
-function updateLog(ns: NS, stats: Map<string, any>) {
-    ns.clearLog();
-    ns.ui.setTailTitle(`[${spinner.next()}] Autoplay`);
+async function loop(ns: NS) {
+    await runAndWait(ns, 'buy-programs.ts');
+    await runAndWait(ns, 'backdoor.ts');
+}
 
-    ns.ui.resizeTail(WINDOW_WIDTH, TITLE_HEIGHT + (LINE_HEIGHT * stats.size));
-    printStats(ns, stats);
-    ns.ui.renderTail();
+async function runAndWait(ns: NS, script: string) {
+    const pid = ns.exec(script, 'home');
+    if (pid) {
+        while (ns.getRunningScript(pid, 'home')) {
+            stats.set('Action', `Running ${script}`);
+            await ns.asleep(1000);
+        }
+    }
+}
+
+function updateLog(ns: NS) {
+    return () => {
+        ns.clearLog();
+        ns.ui.setTailTitle(`[${spinner.next()}] Autoplay`);
+
+        ns.ui.resizeTail(WINDOW_WIDTH, TITLE_HEIGHT + (LINE_HEIGHT * stats.size));
+        printStats(ns, stats);
+        ns.ui.renderTail();
+    };
 }

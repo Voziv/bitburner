@@ -1,6 +1,7 @@
 import { NS, Server } from '@ns';
 import { tFormatAsTable } from '/lib/table';
 import { ServerList } from '/lib/ServerList';
+import { getMaxThreads, getRam } from '/lib/servers';
 
 
 export async function main(ns: NS): Promise<void> {
@@ -26,10 +27,11 @@ export async function main(ns: NS): Promise<void> {
     const player = ns.getPlayer();
     'use asdf'
 
-    const maxThreads = Array.from(serverList.servers.values())
-        .filter(server => ns.hasRootAccess(server.hostname))
-        .reduce((acc, botnetServer) => {
-            return acc + Math.floor((ns.getServerMaxRam(botnetServer.hostname) - ns.getServerUsedRam(botnetServer.hostname) - ((botnetServer.hostname === 'home') ? 16 : 0)) / 1.85);
+
+    const maxThreads = Array.from(serverList.servers.keys())
+        .filter(host => ns.hasRootAccess(host))
+        .reduce((acc, host) => {
+            return acc + getMaxThreads(ns, host, 1.85);
         }, 0);
 
     const servers = Array.from(serverList.servers.values())

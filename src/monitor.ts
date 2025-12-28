@@ -1,4 +1,4 @@
-import { NS } from '@ns';
+import { AutocompleteData, NS } from '@ns';
 import { printStats } from '/lib/format';
 import { LINE_HEIGHT, TITLE_HEIGHT } from '/lib/ui';
 import { Spinner } from '/lib/Spinner';
@@ -7,6 +7,10 @@ import { Spinner } from '/lib/Spinner';
 const sleepMillis = 1000;
 const MAX_SCAN_DEPTH = 25;
 const WINDOW_WIDTH = 400;
+
+export function autocomplete(data: AutocompleteData, args: string[]) {
+    return [ ...data.servers ];
+}
 
 export async function main(ns: NS): Promise<void> {
     ns.disableLog('ALL');
@@ -45,6 +49,7 @@ export class Monitor {
         this.stats.set('Money', `$${this.ns.formatNumber(this.ns.getServerMoneyAvailable(this.target))} / $${this.ns.formatNumber(this.ns.getServerMaxMoney(this.target))}`);
         this.stats.set('Security', `${this.ns.formatNumber(this.ns.getServerSecurityLevel(this.target))} (Min: ${this.ns.formatNumber(this.ns.getServerMinSecurityLevel(this.target), 0)})`);
         this.stats.set('Hack Chance', `${this.ns.formatNumber(this.ns.hackAnalyzeChance(this.target) * 100)}%`);
+        this.stats.set('Weaken Time', `${this.ns.tFormat(this.ns.getWeakenTime(this.target))}`);
 
 
         this.ns.clearLog();

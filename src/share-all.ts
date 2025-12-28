@@ -4,6 +4,7 @@ import { ServerList } from '/lib/ServerList';
 
 
 const sleepMillis = 1000;
+const SHARE_SCRIPT = 'share.ts';
 
 export async function main(ns: NS): Promise<void> {
     ns.disableLog('ALL');
@@ -43,14 +44,20 @@ class ShareManager {
     constructor(ns: NS) {
         this.ns = ns;
         this.serverList = new ServerList(ns);
-        this.shareScriptRam = this.ns.getScriptRam('share.ts', 'home');
+        this.shareScriptRam = this.ns.getScriptRam(SHARE_SCRIPT, 'home');
+
+        ns.atExit(() => {
+            for (const [ host ] of this.serverList.servers) {
+                ns.scriptKill(SHARE_SCRIPT, host);
+            }
+        });
     }
 
     public async tick() {
         this.lastTick = this.tickStart;
         this.tickStart = Date.now();
 
-        this.shareScriptRam = this.ns.getScriptRam('share.ts', 'home');
+        this.shareScriptRam = this.ns.getScriptRam(SHARE_SCRIPT, 'home');
         await this.serverList.onTick();
 
         const newTotalThreads = this.countThreads();
@@ -102,12 +109,12 @@ class ShareManager {
 
             if (host !== 'home') {
                 // TODO: Check hashes and only copy when different?
-                this.ns.scp('share.ts', host, 'home');
+                this.ns.scp(SHARE_SCRIPT, host, 'home');
             }
 
-            this.ns.scriptKill('share.ts', host);
+            this.ns.scriptKill(SHARE_SCRIPT, host);
 
-            this.ns.exec('share.ts', host, threadsAvailable);
+            this.ns.exec(SHARE_SCRIPT, host, threadsAvailable);
             this.sharedRam += threadsAvailable * this.shareScriptRam;
             this.sharedThreads += threadsAvailable;
         }
