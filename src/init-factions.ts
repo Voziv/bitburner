@@ -54,8 +54,16 @@ function getFactions(ns: NS) {
 export async function main(ns: NS): Promise<void> {
     ns.disableLog('ALL');
 
+
+
+
+
     ns.ui.clearTerminal();
     const FACTION_NAMES = Object.values(ns.enums.FactionName);
     ns.tprint(FACTION_NAMES);
     ns.exit();
+}
+
+function getHackingAugements(ns: NS) {
+    ns.singularity.augmen
 }

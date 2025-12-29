@@ -235,6 +235,7 @@ export class Hacker {
             this.ns.exec('hack.ts', host, {
                 threads,
                 ramOverride: HACK_SCRIPT_RAM,
+                temporary: true,
             }, 'weaken', target);
 
             securityLevel -= weakenAmount * threads;
@@ -256,6 +257,7 @@ export class Hacker {
             this.ns.exec('hack.ts', host, {
                 threads,
                 ramOverride: HACK_SCRIPT_RAM,
+                temporary: true,
             }, 'weaken', target);
 
             securityLevel -= weakenAmount * threads;
@@ -277,6 +279,7 @@ export class Hacker {
             this.ns.exec('hack.ts', host, {
                 threads,
                 ramOverride: HACK_SCRIPT_RAM,
+                temporary: true,
             }, 'weaken', target);
 
             securityLevel -= weakenAmount * threads;
@@ -324,6 +327,7 @@ export class Hacker {
                 this.ns.exec('hack.ts', host, {
                     threads,
                     ramOverride: HACK_SCRIPT_RAM,
+                    temporary: true,
                 }, 'grow', target, growDelay);
                 serverThreads -= threads;
                 gThreads -= threads;
@@ -334,6 +338,7 @@ export class Hacker {
                 this.ns.exec('hack.ts', host, {
                     threads,
                     ramOverride: HACK_SCRIPT_RAM,
+                    temporary: true,
                 }, 'weaken', target);
                 serverThreads -= threads;
                 gwThreads -= threads;
@@ -449,21 +454,25 @@ export class Hacker {
                 this.ns.exec('hack.ts', host, {
                     threads: batch.hThreads,
                     ramOverride: HACK_SCRIPT_RAM,
+                    temporary: true,
                 }, 'hack', this.target, delay.hackDelay, `batch-${this.batchNumber}`);
 
                 this.ns.exec('hack.ts', host, {
                     threads: batch.hwThreads,
                     ramOverride: HACK_SCRIPT_RAM,
+                    temporary: true,
                 }, 'weaken', this.target, 0, `batch-${this.batchNumber}`);
 
                 this.ns.exec('hack.ts', host, {
                     threads: batch.gThreads,
                     ramOverride: HACK_SCRIPT_RAM,
+                    temporary: true,
                 }, 'grow', this.target, delay.growDelay, `batch-${this.batchNumber}`);
 
                 this.ns.exec('hack.ts', host, {
                     threads: batch.gwThreads,
                     ramOverride: HACK_SCRIPT_RAM,
+                    temporary: true,
                 }, 'weaken', this.target, 0, `batch-${this.batchNumber}`);
 
 

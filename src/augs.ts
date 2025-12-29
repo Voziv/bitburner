@@ -38,9 +38,18 @@ const FACTIONS = [
     'Volhaven',
 ];
 
+function canReset(ns: NS): boolean {
+    if (ns.hasRootAccess(''))
+    return false;
+}
+
 export async function main(ns: NS): Promise<void> {
     ns.disableLog('ALL');
     ns.tprint('');
+
+    if (canReset(ns)) {
+        ns.exec('reset.ts', 'home');
+    }
 
     const augments: string[] = [];
 

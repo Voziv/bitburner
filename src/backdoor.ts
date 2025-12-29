@@ -46,6 +46,7 @@ function canHack(ns: NS, host: string): boolean {
 
     if (!server.hasAdminRights) {
         useTools(ns, host);
+        ns.nuke(host);
     }
 
     return true;

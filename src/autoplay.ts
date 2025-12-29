@@ -41,6 +41,7 @@ export async function main(ns: NS): Promise<void> {
 
 async function loop(ns: NS) {
     await runAndWait(ns, 'buy-programs.ts');
+    await runAndWait(ns, 'buy-servers.ts');
     await runAndWait(ns, 'backdoor.ts');
 }
 

@@ -71,68 +71,56 @@ const FACTION_NAMES = [
     'Volhaven',
 ];
 
-type Faction = {
-    name: string;
-    rep: number;
-    favor: number;
-}
-
-type Augment = {
-    name: string;
-    factions: string[];
-    neededRep: string[];
-    prerequisites: Augment[];
-}
-
-function getFactions(ns: NS) {
-
-}
 
 export async function main(ns: NS): Promise<void> {
     ns.disableLog('ALL');
-
-    const factions = new Map<string, Faction>;
-    const augments = new Map<string, Faction>;
-    const augmentsToBuy: string[] = [];
     const ownedAugments = ns.singularity.getOwnedAugmentations();
     const purchasedAugments = ns.singularity.getOwnedAugmentations(true).filter(augment => !ownedAugments.includes(augment));
+    const hackingAugments = getHackingAugments(ns);
 
+    const augmentsToBuy = hackingAugments.filter(augment => !ns.singularity.getOwnedAugmentations(true).includes(augment));
 
+    for (const augment of augmentsToBuy) {
+        const factions = ns.singularity.getAugmentationFactions(augment)
+            // .filter(faction => FACTION_NAMES.includes(faction))
+        ;
+        ns.tprint(`${augment.padEnd(50)} ${factions.map((faction) => faction.slice(0, 10).padEnd(11)).join(' - ')}`);
+    }
 
-    for (const factionName of FACTION_NAMES) {
-        const faction: Faction = {
-            favor: ns.singularity.getFactionFavor(factionName),
-            name: factionName,
-            rep: ns.singularity.getFactionRep(factionName),
-        };
+    const faction = 'Tetrads';
+    const reqs = ns.singularity.getFactionInviteRequirements(faction);
+    ns.tprint(`=======================`)
+    ns.tprint(`${faction} Requirements`)
+    ns.tprint(`=======================`)
+    for (const req of reqs) {
+        ns.tprint(JSON.stringify(req))
+    }
+
+}
+
+function getHackingAugments(ns: NS) {
+    const augments = [];
+    const factions = Object.values(ns.enums.FactionName);
+
+    for (const faction of factions) {
         const factionAugments = ns.singularity.getAugmentationsFromFaction(faction);
-        for (const factionAugment of factionAugments) {
-            if (!augments.includes(factionAugment)) {
-                augments.push(factionAugment);
+        for (const augment of factionAugments) {
+            if (augments.includes(augment)) {
+                continue;
             }
+            const stats = ns.singularity.getAugmentationStats(augment);
+            if (
+                stats.hacking <= 1
+                && stats.hacking_exp <= 1
+                && stats.hacking_speed <= 1
+                && stats.hacking_money <= 1
+                && stats.hacking_grow <= 1
+                && stats.hacking_chance <= 1
+            ) continue;
 
+            augments.push(augment);
         }
     }
 
-    for (const augment of augments) {
-        const stats = ns.singularity.getAugmentationStats(augment);
-
-        if (ownedAugments.includes(augment)) continue;
-
-        if (
-            stats.hacking <= 1
-            && stats.hacking_exp <= 1
-            && stats.hacking_speed <= 1
-            && stats.hacking_money <= 1
-            && stats.hacking_grow <= 1
-            && stats.hacking_chance <= 1
-        ) continue;
-
-        const { hacking, hacking_exp, hacking_speed, hacking_money, hacking_grow, hacking_chance } = stats;
-        const hackStats = { hacking, hacking_exp, hacking_speed, hacking_money, hacking_grow, hacking_chance };
-        const factions = ns.singularity.getAugmentationFactions(augment);
-
-        // ns.tprint(`${faction} --> ${augment} -> ${JSON.stringify(hackStats)}`);
-        ns.tprint(`${augment.padEnd(50)} ${factions.filter((faction) => FACTION_NAMES.includes(faction)).map((faction) => faction.slice(0, 10).padEnd(11)).join(' - ')}`);
-    }
+    return augments;
 }
