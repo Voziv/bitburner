@@ -42,9 +42,12 @@ export function getRam(ns: NS, host: string): [ availableRam: number, maxRam: nu
         let autoplayScriptsUsedRam = 0;
         for (const script of AUTOPLAY_SCRIPTS) {
             const scriptRam = ns.getScriptRam(script, host);
+            if (scriptRam > 32 && ns.getServerMaxRam('home') < 128) continue;
+
             if (scriptRam > autoplayScriptsMaxRam) {
                 autoplayScriptsMaxRam = scriptRam;
             }
+
             // In case we're in the middle of running any of these scripts
             if (ns.scriptRunning(script, host)) {
                 autoplayScriptsUsedRam += scriptRam;

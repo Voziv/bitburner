@@ -54,6 +54,7 @@ export async function main(ns: NS): Promise<void> {
 
 async function loop(ns: NS) {
     for (const script of AUTOPLAY_SCRIPTS) {
+        if (ns.getScriptRam(script, 'home') > 32 && ns.getServerMaxRam('home') < 128) continue;
         await runAndWait(ns, script);
     }
 }
