@@ -42,10 +42,10 @@ export async function main(ns: NS): Promise<void> {
     // Autojoin all factions that don't have enemies. We want to be gaining passive rep whenever we can.
     for (const faction of ns.singularity.checkFactionInvitations()) {
         // Only autojoin factions when there are zero consequences.
-        if (ns.singularity.getFactionEnemies(faction).length === 0) {
+        // if (ns.singularity.getFactionEnemies(faction).length === 0) {
             ns.tprint(`Joining ${faction}`);
             ns.singularity.joinFaction(faction);
-        }
+        // }
     }
 
     /**
@@ -54,8 +54,14 @@ export async function main(ns: NS): Promise<void> {
     let factionToBuyAugsFrom = selectFactionToBuyAugs(ns, ownedAugments);
 
     if (factionToBuyAugsFrom) {
+        ns.tprint(`${factionToBuyAugsFrom} was selected as the faction to buy augments from`)
         if (ns.getPlayer().factions.includes(factionToBuyAugsFrom)) {
             const currentWork = ns.singularity.getCurrentWork();
+
+            if (currentWork && currentWork.type === 'CLASS') {
+                ns.singularity.stopAction();
+                ns.scriptKill('train.ts', 'home');
+            }
 
             if (!currentWork || currentWork.type !== 'FACTION' || currentWork.factionName !== factionToBuyAugsFrom || currentWork.factionWorkType !== 'hacking') {
                 // No need to focus if we've bought Neuroreceptor Management Implant
@@ -83,10 +89,12 @@ export async function main(ns: NS): Promise<void> {
 
             purchasedAugments = ns.singularity.getOwnedAugmentations(true);
             const remainingAugmentsToBuy = ns.singularity.getAugmentationsFromFaction(factionToBuyAugsFrom)
+                .filter(augment => augment !== NEUROFLUX_GOVERNOR)
                 .filter(augment => !purchasedAugments.includes(augment));
+            ns.tprint(`Remaining Augs: ${JSON.stringify(remainingAugmentsToBuy)}`);
 
             if (remainingAugmentsToBuy.length === 0) {
-                ns.print(`SUCCESS All augments for ${factionToBuyAugsFrom} purchased.`);
+                ns.tprint(`SUCCESS All augments for ${factionToBuyAugsFrom} purchased.`);
                 await reset(ns);
             }
         }
@@ -101,6 +109,11 @@ export async function main(ns: NS): Promise<void> {
     if (factionToGrindFavor) {
         if (ns.getPlayer().factions.includes(factionToGrindFavor)) {
             const currentWork = ns.singularity.getCurrentWork();
+
+            if (currentWork && currentWork.type === 'CLASS') {
+                ns.singularity.stopAction();
+                ns.scriptKill('train.ts', 'home');
+            }
 
             if (!currentWork || currentWork.type !== 'FACTION' || currentWork.factionName !== factionToGrindFavor || currentWork.factionWorkType !== 'hacking') {
                 // No need to focus if we've bought Neuroreceptor Management Implant
