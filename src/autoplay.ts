@@ -4,6 +4,18 @@ import { printStats } from '/lib/format';
 import { Spinner } from '/lib/Spinner';
 
 
+// Exported so that servers.ts can keep this in mind when reserving ram on home.
+// Order matters as the scripts will execute in this exact order.
+export const AUTOPLAY_SCRIPTS = [
+    'buy-home-upgrades.ts',
+    'buy-programs.ts',
+    'spider.ts',
+    'buy-servers.ts',
+    'backdoor.ts',
+    'destroy.ts',
+    'buy-augs.ts',
+];
+
 const stats = new Map<string, any>();
 
 const WINDOW_WIDTH = 400;
@@ -29,7 +41,7 @@ export async function main(ns: NS): Promise<void> {
 
     // TODO: Startup other scripts like the hacker script.
 
-
+    stats.set('Action', `Sleeping for 60s`);
     await ns.asleep(60000);
     while (true) {
         await loop(ns);
@@ -39,20 +51,28 @@ export async function main(ns: NS): Promise<void> {
     }
 }
 
+
 async function loop(ns: NS) {
-    await runAndWait(ns, 'buy-programs.ts');
-    await runAndWait(ns, 'buy-servers.ts');
-    await runAndWait(ns, 'backdoor.ts');
+    for (const script of AUTOPLAY_SCRIPTS) {
+        await runAndWait(ns, script);
+    }
 }
 
-async function runAndWait(ns: NS, script: string) {
-    const pid = ns.exec(script, 'home');
-    if (pid) {
-        while (ns.getRunningScript(pid, 'home')) {
-            stats.set('Action', `Running ${script}`);
-            await ns.asleep(1000);
+export async function runAndWait(ns: NS, script: string, maxAttempts = 50) {
+    let attempts = 0;
+    while (attempts < maxAttempts) {
+        const pid = ns.exec(script, 'home');
+        if (pid) {
+            while (ns.getRunningScript(pid, 'home')) {
+                stats.set('Action', `Running ${script}`);
+                await ns.asleep(1000);
+            }
+            break;
         }
+        await ns.sleep(500);
+        attempts++;
     }
+
 }
 
 function updateLog(ns: NS) {

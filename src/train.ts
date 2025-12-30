@@ -1,4 +1,4 @@
-import { GymType, NS, StudyTask, UniversityClassType, UniversityLocationName } from '@ns';
+import { GymType, NS, UniversityClassType, UniversityLocationName } from '@ns';
 import { LINE_HEIGHT, TITLE_HEIGHT } from '/lib/ui';
 
 
@@ -14,6 +14,7 @@ export async function main(ns: NS): Promise<void> {
         if (isDoingSomething) {
             ns.singularity.stopAction();
         }
+        ns.ui.closeTail();
     });
 
     // 1. Train hacking to level 100

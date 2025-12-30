@@ -389,9 +389,6 @@ export class Hacker {
 
             const [ availableRam, maxRam ] = getRam(this.ns, host);
             let threadsAvailable = Math.floor(availableRam / HACK_SCRIPT_RAM);
-            if (threadsAvailable < 3) {
-                continue;
-            }
             // this.ns.tprint(`Server: ${host} has ${threadsAvailable} threads available for hacking.`);
 
             let batch: Batch;
