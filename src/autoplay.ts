@@ -25,7 +25,7 @@ export async function main(ns: NS): Promise<void> {
     ns.ui.resizeTail(WINDOW_WIDTH, TITLE_HEIGHT + (LINE_HEIGHT * 1));
     lines.set('Action', `Booting up`);
 
-    initLogRenderer(ns, lines, {});
+    initLogRenderer(ns, lines, { preProcessor: updateLines });
 
     // Initial Loop first
     await loop(ns);
