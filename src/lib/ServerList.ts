@@ -6,7 +6,6 @@ const MAX_SCAN_DEPTH = 25;
 
 export class ServerList {
     private readonly ns: NS;
-    private readonly tools: Tools;
     private readonly hosts = new Set<string>();
 
     public readonly homeServers = new Map<string, Server>();
@@ -18,9 +17,7 @@ export class ServerList {
 
     constructor(ns: NS) {
         this.ns = ns;
-        this.tools = new Tools(ns);
         this.lastUpdate = Date.now();
-        this.tools.onTick();
         this.refreshServers();
     }
 
@@ -28,7 +25,6 @@ export class ServerList {
         const now = Date.now();
         if (this.lastUpdate <= now - 10000) {
             this.lastUpdate = now;
-            this.tools.onTick();
             this.refreshServers();
         }
     }
@@ -46,11 +42,6 @@ export class ServerList {
 
         for (const host of this.hosts) {
             const server = this.ns.getServer(host);
-            if (!server.hasAdminRights && server.numOpenPortsRequired! <= this.tools.toolCount) {
-                this.tools.openPorts(host);
-                this.ns.nuke(host);
-            }
-
             this.servers.set(host, server);
 
             if (server.hostname === 'home') {
