@@ -348,22 +348,6 @@ export class Hacker {
         return [ gThreads, gwThreads ];
     }
 
-    private calculateBatchesByRam() {
-        this.batchByRam.clear();
-
-
-        for (let i = 1; i <= 20; i++) {
-            const serverRam = Math.pow(2, i);
-            const threads = Math.floor(serverRam / HACK_SCRIPT_RAM);
-
-            // TODO: Maybe take CPU cores into account?
-            const batch = calculateOptimalBatch(this.ns, this.target, threads, 1);
-            if (batch.totalThreads > 0) {
-                this.batchByRam.set(serverRam, batch);
-            }
-        }
-    }
-
     private batchNumber = 0;
 
     private crudeHack(target: string) {
