@@ -21,115 +21,25 @@ const FACTION_NAMES = [
 export async function main(ns: NS): Promise<void> {
     ns.disableLog('ALL');
 
-    let ownedAugments = ns.singularity.getOwnedAugmentations();
-
-    // const reqs = ns.singularity.getFactionInviteRequirements(ns.enums.FactionName.TianDiHui);
-    // for (const req of reqs) {
-    //     ns.tprint(`Req: ${JSON.stringify(req)}`);
-    // }
-
-    // Tian needs 1m cash, hacking level 50, and we need to visit one of [Chongqing, New Tokyo, Ishima]
-    if (!ns.getPlayer().factions.includes(ns.enums.FactionName.TianDiHui) && ns.getPlayer().money >= 1_000_000 + 200_000 && ns.getPlayer().skills.hacking >= 50) {
-        // ns.tprint('Trying to get an invite');
-        if (!ns.singularity.travelToCity(ns.enums.CityName.NewTokyo)) throw new Error('Failed to travel to New Tokyo');
-        while (!ns.singularity.checkFactionInvitations().includes(ns.enums.FactionName.TianDiHui)) {
-            await ns.sleep(100);
-        }
-        if (!ns.singularity.travelToCity(ns.enums.CityName.Sector12)) throw new Error('Failed to travel to Sector 12');
-    }
-
-
-    // Autojoin all factions that don't have enemies. We want to be gaining passive rep whenever we can.
-    for (const faction of ns.singularity.checkFactionInvitations()) {
-        // Only autojoin factions when there are zero consequences.
-        // if (ns.singularity.getFactionEnemies(faction).length === 0) {
-            ns.tprint(`Joining ${faction}`);
-            ns.singularity.joinFaction(faction);
-        // }
-    }
+    await joinTianDiHui(ns);
+    acceptAllInvites(ns);
 
     /**
-     * Initially buy all 'cheap' augments
+     * Initially buy all the 'cheap' augments (rep < 200k)
      */
-    let factionToBuyAugsFrom = selectFactionToBuyAugs(ns, ownedAugments);
-
-    if (factionToBuyAugsFrom) {
-        ns.tprint(`${factionToBuyAugsFrom} was selected as the faction to buy augments from`)
-        if (ns.getPlayer().factions.includes(factionToBuyAugsFrom)) {
-            const currentWork = ns.singularity.getCurrentWork();
-
-            if (currentWork && currentWork.type === 'CLASS') {
-                ns.singularity.stopAction();
-                ns.scriptKill('train.ts', 'home');
-            }
-
-            if (!currentWork || currentWork.type !== 'FACTION' || currentWork.factionName !== factionToBuyAugsFrom || currentWork.factionWorkType !== 'hacking') {
-                // No need to focus if we've bought Neuroreceptor Management Implant
-                const focus = !ownedAugments.includes('Neuroreceptor Management Implant');
-                ns.singularity.workForFaction(factionToBuyAugsFrom, ns.enums.FactionWorkType.hacking, focus);
-            }
-
-            let purchasedAugments = ns.singularity.getOwnedAugmentations(true);
-            const augmentsToBuy = ns.singularity.getAugmentationsFromFaction(factionToBuyAugsFrom)
-                .filter(augment => augment !== NEUROFLUX_GOVERNOR)
-                .filter(augment => !purchasedAugments.includes(augment))
-                .sort((augment1, augment2) => {
-                    return ns.singularity.getAugmentationPrice(augment2) - ns.singularity.getAugmentationPrice(augment1);
-                });
-
-            const rep = ns.singularity.getFactionRep(factionToBuyAugsFrom);
-
-            for (const augment of augmentsToBuy) {
-                if (rep < ns.singularity.getAugmentationRepReq(augment) || ns.getPlayer().money < ns.singularity.getAugmentationPrice(augment)) {
-                    break;
-                }
-
-                ns.singularity.purchaseAugmentation(factionToBuyAugsFrom, augment);
-            }
-
-            purchasedAugments = ns.singularity.getOwnedAugmentations(true);
-            const remainingAugmentsToBuy = ns.singularity.getAugmentationsFromFaction(factionToBuyAugsFrom)
-                .filter(augment => augment !== NEUROFLUX_GOVERNOR)
-                .filter(augment => !purchasedAugments.includes(augment));
-            ns.tprint(`Remaining Augs: ${JSON.stringify(remainingAugmentsToBuy)}`);
-
-            if (remainingAugmentsToBuy.length === 0) {
-                ns.tprint(`SUCCESS All augments for ${factionToBuyAugsFrom} purchased.`);
-                await reset(ns);
-            }
-        }
+    let factionToWorkOn = selectFaction(ns);
+    if (factionToWorkOn) {
+        await workOnFaction(ns, factionToWorkOn);
         return;
     }
 
     /**
      * After all the cheap augments are purchased, grind favor for the
      */
-    let factionToGrindFavor = selectFactionToGrindFavor(ns, ownedAugments);
-
+    let factionToGrindFavor = selectFactionToGrindFavor(ns);
     if (factionToGrindFavor) {
-        if (ns.getPlayer().factions.includes(factionToGrindFavor)) {
-            const currentWork = ns.singularity.getCurrentWork();
-
-            if (currentWork && currentWork.type === 'CLASS') {
-                ns.singularity.stopAction();
-                ns.scriptKill('train.ts', 'home');
-            }
-
-            if (!currentWork || currentWork.type !== 'FACTION' || currentWork.factionName !== factionToGrindFavor || currentWork.factionWorkType !== 'hacking') {
-                // No need to focus if we've bought Neuroreceptor Management Implant
-                const focus = !ownedAugments.includes('Neuroreceptor Management Implant');
-                ns.singularity.workForFaction(factionToGrindFavor, ns.enums.FactionWorkType.hacking, focus);
-            }
-
-            const favorAfterReset = ns.singularity.getFactionFavor(factionToGrindFavor) + ns.singularity.getFactionFavorGain(factionToGrindFavor);
-
-            if (favorAfterReset >= 150) {
-                ns.print(`SUCCESS Favor for ${factionToGrindFavor} will be at 150 after reset.`);
-                await reset(ns);
-            }
-        }
+        await workOnFaction(ns, factionToGrindFavor);
         return;
-
     }
 
     /**
@@ -149,47 +59,48 @@ export async function main(ns: NS): Promise<void> {
 }
 
 /**
- * Select the faction that we are
+ * Select the faction to work on
  */
-function selectFactionToBuyAugs(ns: NS, ownedAugments: string[]) {
-    let selectedFaction;
+function selectFaction(ns: NS) {
+    const ownedAugments = ns.singularity.getOwnedAugmentations();
     for (const faction of FACTION_NAMES) {
-        // Neuroflux is something we buy before resetting
-        const augmentsToPurchaseThisRun = ns.singularity.getAugmentationsFromFaction(faction)
-            .filter(augment => augment !== NEUROFLUX_GOVERNOR)
+        // Neuroflux is available everywhere and is infinite,
+        // so we ignore it here. We'll buy it as part of resetting,
+        // or when there are no more factions to work on.
+        const augments = ns.singularity.getAugmentationsFromFaction(faction)
             .filter(augment => !ownedAugments.includes(augment))
+            .filter(augment => augment !== NEUROFLUX_GOVERNOR);
+
+        const cheapAugments = augments
             .filter(augment => ns.singularity.getAugmentationRepReq(augment) < 235_000);
 
-        if (augmentsToPurchaseThisRun.length > 0) {
-            selectedFaction = faction;
-            break;
+        if (cheapAugments.length > 0) {
+            return faction;
         }
 
+        if (ns.singularity.getFactionRep(faction) >= 150 && augments.length > 0) {
+            return faction;
+        }
     }
-
-    return selectedFaction;
 }
 
 /**
- * Select the faction to grow to 150 favor
+ * Select the faction to grind favor with
  */
-function selectFactionToGrindFavor(ns: NS, ownedAugments: string[]) {
-    let selectedFaction;
+function selectFactionToGrindFavor(ns: NS) {
+    const ownedAugments = ns.singularity.getOwnedAugmentations();
     for (const faction of FACTION_NAMES) {
-        if (ns.singularity.getFactionFavor(faction) >= 150) continue;
-
-        const augmentsToPurchaseThisRun = ns.singularity.getAugmentationsFromFaction(faction)
-            .filter(augment => augment !== NEUROFLUX_GOVERNOR)
+        // Neuroflux is available everywhere and is infinite,
+        // so we ignore it here. We'll buy it as part of resetting,
+        // or when there are no more factions to work on.
+        const augments = ns.singularity.getAugmentationsFromFaction(faction)
             .filter(augment => !ownedAugments.includes(augment))
-            .filter(augment => ns.singularity.getAugmentationRepReq(augment) > 235_000);
+            .filter(augment => augment !== NEUROFLUX_GOVERNOR);
 
-        if (augmentsToPurchaseThisRun.length > 0) {
-            selectedFaction = faction;
-            break;
+        if (ns.singularity.getFactionRep(faction) < 150 && augments.length > 0) {
+            return faction;
         }
     }
-
-    return selectedFaction;
 }
 
 async function reset(ns: NS) {
@@ -301,4 +212,103 @@ function getHackingAugments(ns: NS) {
     }
 
     return augments;
+}
+
+async function joinTianDiHui(ns: NS) {
+    // const reqs = ns.singularity.getFactionInviteRequirements(ns.enums.FactionName.TianDiHui);
+    // for (const req of reqs) {
+    //     ns.tprint(`Req: ${JSON.stringify(req)}`);
+    // }
+
+    // Tian needs 1m cash, hacking level 50, and we need to visit one of [Chongqing, New Tokyo, Ishima]
+    if (!ns.getPlayer().factions.includes(ns.enums.FactionName.TianDiHui) && ns.getPlayer().money >= 1_000_000 + 200_000 && ns.getPlayer().skills.hacking >= 50) {
+        // ns.tprint('Trying to get an invite');
+        if (!ns.singularity.travelToCity(ns.enums.CityName.NewTokyo)) throw new Error('Failed to travel to New Tokyo');
+        while (!ns.singularity.checkFactionInvitations().includes(ns.enums.FactionName.TianDiHui)) {
+            await ns.sleep(100);
+        }
+        if (!ns.singularity.travelToCity(ns.enums.CityName.Sector12)) throw new Error('Failed to travel to Sector 12');
+    }
+}
+
+function acceptAllInvites(ns: NS) {
+    // Autojoin all factions that don't have enemies.
+    // We want to be gaining passive rep whenever we can.
+    for (const faction of ns.singularity.checkFactionInvitations()) {
+        // Only autojoin factions when there are zero consequences.
+        if (ns.singularity.getFactionEnemies(faction).length === 0) {
+            // ns.tprint(`Joining ${faction}`);
+            ns.singularity.joinFaction(faction);
+        }
+    }
+}
+
+async function workOnFaction(ns: NS, faction: string) {
+    if (ns.getPlayer().factions.includes(faction)) {
+        const ownedAugments = ns.singularity.getOwnedAugmentations();
+
+        /**
+         * Stop training, in case we get enough rep early on.
+         */
+        const currentWork = ns.singularity.getCurrentWork();
+        if (currentWork && currentWork.type === 'CLASS') {
+            ns.singularity.stopAction();
+            ns.scriptKill('train.ts', 'home');
+        }
+
+        /**
+         * Start working for the faction so we're gaining rep.
+         */
+        if (!currentWork || currentWork.type !== 'FACTION' || currentWork.factionName !== faction || currentWork.factionWorkType !== 'hacking') {
+            // No need to focus if we've bought Neuroreceptor Management Implant
+            const focus = !ownedAugments.includes('Neuroreceptor Management Implant');
+            ns.singularity.workForFaction(faction, ns.enums.FactionWorkType.hacking, focus);
+        }
+
+        /**
+         * Then depending on our goal, we should buy augs and reset when appropriate.
+         */
+
+        let purchasedAugments = ns.singularity.getOwnedAugmentations(true);
+        const augmentsToBuy = ns.singularity.getAugmentationsFromFaction(faction)
+            .filter(augment => augment !== NEUROFLUX_GOVERNOR)
+            .filter(augment => !purchasedAugments.includes(augment))
+            .sort((augment1, augment2) => {
+                return ns.singularity.getAugmentationPrice(augment2) - ns.singularity.getAugmentationPrice(augment1);
+            });
+
+
+        const favor = ns.singularity.getFactionFavor(faction);
+
+        for (const augment of augmentsToBuy) {
+            const rep = ns.singularity.getFactionRep(faction);
+            const repRequired = ns.singularity.getAugmentationRepReq(augment);
+            const donationRequired = Math.max(0, Math.ceil(ns.formulas.reputation.donationForRep(repRequired - rep, ns.getPlayer())));
+            const augmentPrice = ns.singularity.getAugmentationPrice(augment);
+
+            // If we can, buy our way to the rep required
+            if (rep < repRequired && favor > 150 && ns.getPlayer().money > donationRequired) {
+                ns.singularity.donateToFaction(faction, donationRequired);
+            } else {
+                break;
+            }
+
+            if (ns.getPlayer().money < augmentPrice) {
+                break;
+            }
+
+            ns.singularity.purchaseAugmentation(faction, augment);
+        }
+
+        purchasedAugments = ns.singularity.getOwnedAugmentations(true);
+        const remainingAugmentsToBuy = ns.singularity.getAugmentationsFromFaction(faction)
+            .filter(augment => augment !== NEUROFLUX_GOVERNOR)
+            .filter(augment => !purchasedAugments.includes(augment));
+
+        const shouldResetForFavor = ns.singularity.getFactionFavor(faction) < 150 && ns.singularity.getFactionFavor(faction) + ns.singularity.getFactionFavorGain(faction) >= 150;
+
+        if (remainingAugmentsToBuy.length === 0 || shouldResetForFavor) {
+            await reset(ns);
+        }
+    }
 }

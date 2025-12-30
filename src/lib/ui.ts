@@ -20,9 +20,17 @@ const defaultOpts: UpdateLogOpts = {
     title: 'Default Title',
 };
 
+
 export function initLogRenderer(ns: NS, lines: Map<string, any>, opts?: UpdateLogOpts) {
     opts = { ...defaultOpts, ...opts };
+
+    ns.disableLog('ALL');
+    ns.ui.openTail();
+    ns.ui.resizeTail(opts.maxWidth!, TITLE_HEIGHT + LINE_HEIGHT);
+
     const spinner = new Spinner();
+
+
     const intervalId = setInterval(() => {
         if (opts?.preProcessor) {
             opts.preProcessor(ns, lines);

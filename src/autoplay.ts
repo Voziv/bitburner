@@ -1,5 +1,5 @@
 import { NS } from '@ns';
-import { initLogRenderer, LINE_HEIGHT, TITLE_HEIGHT, UpdateLogOpts } from '/lib/ui';
+import { initLogRenderer, UpdateLogOpts } from '/lib/ui';
 
 
 // Exported so that servers.ts can keep this in mind when reserving ram on home.
@@ -20,9 +20,9 @@ const WINDOW_WIDTH = 400;
 
 
 export async function main(ns: NS): Promise<void> {
-    ns.disableLog('ALL');
-    ns.ui.openTail();
-    ns.ui.resizeTail(WINDOW_WIDTH, TITLE_HEIGHT + (LINE_HEIGHT * 1));
+    const sleepMs = 20_000;
+    const sleepMsString = ns.tFormat(sleepMs);
+
     lines.set('Action', `Booting up`);
 
     initLogRenderer(ns, lines, { preProcessor: updateLines });
@@ -32,13 +32,13 @@ export async function main(ns: NS): Promise<void> {
 
     // TODO: Startup other scripts like the hacker script.
 
-    lines.set('Action', `Sleeping for 60s`);
-    await ns.asleep(60000);
+    lines.set('Action', `Sleeping for ${sleepMsString}`);
+    await ns.asleep(sleepMs);
     while (true) {
         await loop(ns);
 
-        lines.set('Action', `Sleeping for 60s`);
-        await ns.asleep(60000);
+        lines.set('Action', `Sleeping for ${sleepMsString}`);
+        await ns.asleep(sleepMs);
     }
 }
 
