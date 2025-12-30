@@ -1,6 +1,6 @@
-import { calculateOptimalBatch } from '/hacker';
 import { NS } from '@ns';
 import { getAvailableThreads, getRam } from '/lib/servers';
+import { calculateOptimalBatch } from '/lib/hacking';
 
 
 export async function main(ns: NS): Promise<void> {

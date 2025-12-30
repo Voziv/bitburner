@@ -1,6 +1,6 @@
 import { NS } from '@ns';
 import { tPrintStats } from '/lib/format';
-import { calculateOptimalBatch } from '/hacker';
+import { calculateOptimalBatch } from '/lib/hacking';
 
 export async function main(ns: NS): Promise<void> {
     ns.disableLog('ALL');
